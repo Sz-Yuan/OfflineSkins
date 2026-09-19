@@ -18,9 +18,9 @@ import java.util.function.Supplier;
 // 构造 mixin 用的 PlayerSkin；返回 null 表示模组不介入
 public class SkinUtils {
 
-    private static final Function<GameProfile, Identifier> SKIN = profile -> FabricOfflineSkins.getLocationSkin(profile, null);
-    private static final Function<GameProfile, Identifier> CAPE = profile -> FabricOfflineSkins.getLocationCape(profile, null);
-    private static final Function<GameProfile, PlayerModelType> MODEL = profile -> PlayerModelType.byLegacyServicesName(FabricOfflineSkins.getSkinType(profile, null));
+    private static final Function<GameProfile, Identifier> SKIN = profile -> FabricOfflineSkins.getLocationSkin(profile);
+    private static final Function<GameProfile, Identifier> CAPE = profile -> FabricOfflineSkins.getLocationCape(profile);
+    private static final Function<GameProfile, PlayerModelType> MODEL = profile -> PlayerModelType.byLegacyServicesName(FabricOfflineSkins.getSkinType(profile));
 
     // 动态贴图已注册在该 Identifier 上
     private static ClientAsset.Texture wrap(Identifier location) {

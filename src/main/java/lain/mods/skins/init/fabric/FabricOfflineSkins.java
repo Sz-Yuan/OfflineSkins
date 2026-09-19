@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.logging.LogUtils;
 import lain.mods.skins.api.SkinProviderAPI;
 import lain.mods.skins.api.interfaces.ISkin;
 import lain.mods.skins.impl.ConfigOptions;
@@ -17,6 +18,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -32,6 +34,8 @@ import java.util.WeakHashMap;
 // Fabric 客户端入口：配置、Provider 注册、动态贴图
 public class FabricOfflineSkins implements ClientModInitializer {
 
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     // ByteBuffer → 已注册的动态贴图 Identifier
     private static final Map<ByteBuffer, Identifier> textures = new WeakHashMap<>();
 
@@ -42,11 +46,11 @@ public class FabricOfflineSkins implements ClientModInitializer {
         return Identifier.fromNamespaceAndPath("offlineskins", String.format("textures/generated/%s", UUID.randomUUID()));
     }
 
-    public static Identifier getLocationCape(GameProfile profile, Identifier result) {
+    public static Identifier getLocationCape(GameProfile profile) {
         return locationOf(SkinProviderAPI.CAPE.getSkin(PlayerProfile.wrapGameProfile(profile)));
     }
 
-    public static Identifier getLocationSkin(GameProfile profile, Identifier result) {
+    public static Identifier getLocationSkin(GameProfile profile) {
         return locationOf(SkinProviderAPI.SKIN.getSkin(PlayerProfile.wrapGameProfile(profile)));
     }
 
@@ -85,8 +89,8 @@ public class FabricOfflineSkins implements ClientModInitializer {
         }
     }
 
-    public static String getSkinType(GameProfile profile, String result) {
-        Identifier location = getLocationSkin(profile, null);
+    public static String getSkinType(GameProfile profile) {
+        Identifier location = getLocationSkin(profile);
         if (location == null)
             return null;
         ISkin skin = SkinProviderAPI.SKIN.getSkin(PlayerProfile.wrapGameProfile(profile));
@@ -129,19 +133,26 @@ public class FabricOfflineSkins implements ClientModInitializer {
     private static ConfigOptions loadConfig() {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         Path path = Paths.get(".", "config", "offlineskins.json");
-        path.toFile().getParentFile().mkdirs();
+        Path parent = path.getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                LOGGER.error("[OfflineSkins] 无法创建配置目录 {}", parent, e);
+            }
+        }
         if (!path.toFile().exists()) {
             try (Writer w = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
                 gson.toJson(new ConfigOptions().defaultOptions(), w);
             } catch (Throwable t) {
-                t.printStackTrace();
+                LOGGER.error("[OfflineSkins] 写入默认配置失败", t);
             }
         }
         try {
             ConfigOptions config = gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), ConfigOptions.class);
             return config != null ? config : new ConfigOptions().defaultOptions();
         } catch (Throwable t) {
-            t.printStackTrace();
+            LOGGER.error("[OfflineSkins] 读取配置失败，使用默认值", t);
             return new ConfigOptions().defaultOptions();
         }
     }

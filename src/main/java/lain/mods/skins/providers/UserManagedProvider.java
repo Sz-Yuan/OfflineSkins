@@ -1,5 +1,6 @@
 package lain.mods.skins.providers;
 
+import com.mojang.logging.LogUtils;
 import lain.lib.SharedPool;
 import lain.mods.skins.api.interfaces.IPlayerProfile;
 import lain.mods.skins.api.interfaces.ISkin;
@@ -7,15 +8,20 @@ import lain.mods.skins.api.interfaces.ISkinProvider;
 import lain.mods.skins.impl.Shared;
 import lain.mods.skins.impl.SkinData;
 import lain.mods.skins.impl.fabric.ImageUtils;
+import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Function;
 
 // 本地纹理：cachedImages/{skins|capes}/[uuid/]<名>.png
 // 只要文件存在即可使用，不要求正版
 public class UserManagedProvider implements ISkinProvider {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     public enum Kind { SKIN, CAPE }
 
@@ -28,9 +34,14 @@ public class UserManagedProvider implements ISkinProvider {
         this.kind = kind;
         String folder = kind == Kind.SKIN ? "skins" : "capes";
         dirByName = new File(workDir.toFile(), folder);
-        dirByName.mkdirs();
         dirByUuid = new File(dirByName, "uuid");
-        dirByUuid.mkdirs();
+        // 创建缓存目录；失败不阻断启动，读取阶段会视为无本地皮肤
+        try {
+            Files.createDirectories(dirByUuid.toPath());
+        } catch (IOException e) {
+            // 不阻断启动；读取阶段会视为无本地皮肤
+            LOGGER.error("无法创建本地皮肤目录 {}", dirByUuid, e);
+        }
     }
 
     @Override

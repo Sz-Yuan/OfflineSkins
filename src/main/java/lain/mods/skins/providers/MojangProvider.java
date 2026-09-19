@@ -13,7 +13,6 @@ import lain.mods.skins.impl.fabric.ImageUtils;
 import lain.mods.skins.impl.fabric.MinecraftUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Optional;
 import java.util.function.Function;
 
 // 仅 Mojang 官方源；非正版不请求，数据保持为空 → 走原版
@@ -44,7 +43,8 @@ public class MojangProvider implements ISkinProvider {
             MinecraftProfileTexture texture = kind == Kind.SKIN ? textures.skin() : textures.cape();
             if (texture == null)
                 return;
-            Shared.downloadSkin(texture.getUrl(), Runnable::run).thenApply(Optional::get).thenAccept(data -> {
+            Shared.downloadSkin(texture.getUrl(), Runnable::run).thenAccept(opt -> {
+                byte[] data = opt.orElse(null);
                 if (data == null || !ImageUtils.validateData(data))
                     return;
                 if (kind == Kind.CAPE)

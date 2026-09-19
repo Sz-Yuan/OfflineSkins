@@ -1,6 +1,5 @@
 package lain.mods.skins.init.fabric.mixins;
 
-import com.mojang.authlib.GameProfile;
 import lain.mods.skins.init.fabric.FabricOfflineSkins;
 import net.minecraft.client.renderer.blockentity.SkullBlockRenderer;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -14,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // 玩家头颅：有模组皮肤且未禁用时覆盖渲染层
+// 列表在 offlineskins-mixins.json 的 client 段
 @Mixin(SkullBlockRenderer.class)
 public abstract class SkullBlockEntityRendererMixin {
 
@@ -24,17 +24,15 @@ public abstract class SkullBlockEntityRendererMixin {
             require = 0
     )
     private void resolveSkullRenderType(SkullBlock.Type type, SkullBlockEntity entity, CallbackInfoReturnable<RenderType> info) {
-        if (FabricOfflineSkins.PLAYERHEADS && type == SkullBlock.Types.PLAYER && entity != null) {
-            ResolvableProfile ownerProfile = entity.getOwnerProfile();
-            if (ownerProfile != null) {
-                GameProfile gameProfile = ownerProfile.partialProfile();
-                if (gameProfile != null) {
-                    Identifier loc = FabricOfflineSkins.getLocationSkin(gameProfile, null);
-                    if (loc != null)
-                        info.setReturnValue(SkullBlockRenderer.getPlayerSkinRenderType(loc));
-                }
-            }
-        }
+        if (!FabricOfflineSkins.PLAYERHEADS || type != SkullBlock.Types.PLAYER || entity == null)
+            return;
+        ResolvableProfile ownerProfile = entity.getOwnerProfile();
+        if (ownerProfile == null)
+            return;
+        // partialProfile() 由构造器保证非 null
+        Identifier loc = FabricOfflineSkins.getLocationSkin(ownerProfile.partialProfile());
+        if (loc != null)
+            info.setReturnValue(SkullBlockRenderer.getPlayerSkinRenderType(loc));
     }
 
 }

@@ -4,8 +4,8 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "PlayerListEntryMixin",
-    "SkullBlockEntityRendererMixin",
-    "PlayerListHudMixin"
+    "PlayerListHudMixin",
+    "SkullBlockEntityRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1
