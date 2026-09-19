@@ -116,16 +116,16 @@ public class FabricOfflineSkins implements ClientModInitializer {
         ConfigOptions config = loadConfig();
 
         Path cacheRoot = Paths.get(".", "cachedImages");
-        // 注册顺序：本地 png 优先，其次 Mojang（仅正版）
+        // 优先级：正版名先走 Mojang，失败再本地；仅本地有 png 时用本地；皆无则空数据 → 原版
         SkinProviderAPI.SKIN.clearProviders();
-        SkinProviderAPI.SKIN.registerProvider(new UserManagedProvider(cacheRoot, UserManagedProvider.Kind.SKIN).withFilter(ImageUtils::legacyFilter));
         if (config.useMojang)
             SkinProviderAPI.SKIN.registerProvider(new MojangProvider(MojangProvider.Kind.SKIN).withFilter(ImageUtils::legacyFilter));
+        SkinProviderAPI.SKIN.registerProvider(new UserManagedProvider(cacheRoot, UserManagedProvider.Kind.SKIN).withFilter(ImageUtils::legacyFilter));
 
         SkinProviderAPI.CAPE.clearProviders();
-        SkinProviderAPI.CAPE.registerProvider(new UserManagedProvider(cacheRoot, UserManagedProvider.Kind.CAPE));
         if (config.useMojang)
             SkinProviderAPI.CAPE.registerProvider(new MojangProvider(MojangProvider.Kind.CAPE));
+        SkinProviderAPI.CAPE.registerProvider(new UserManagedProvider(cacheRoot, UserManagedProvider.Kind.CAPE));
 
         PLAYERHEADS = !config.disablePlayerHeads;
     }

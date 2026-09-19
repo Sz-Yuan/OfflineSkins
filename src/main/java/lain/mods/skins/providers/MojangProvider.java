@@ -1,24 +1,22 @@
 package lain.mods.skins.providers;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import lain.lib.SharedPool;
 import lain.mods.skins.api.interfaces.IPlayerProfile;
 import lain.mods.skins.api.interfaces.ISkin;
 import lain.mods.skins.api.interfaces.ISkinProvider;
+import lain.mods.skins.impl.MojangService;
 import lain.mods.skins.impl.Shared;
 import lain.mods.skins.impl.SkinData;
 import lain.mods.skins.impl.fabric.ImageUtils;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 
-// 仅 Mojang 官方源：解析 profile 的 textures 属性后下载
-// 非正版不请求，数据保持为空 → 走原版
+// 仅 Mojang 官方源
+// 离线服上的正版名：先按用户名解析正版 UUID，再查 sessionserver，不依赖 GameProfile.properties
 public class MojangProvider implements ISkinProvider {
 
     public enum Kind { SKIN, CAPE }
@@ -36,43 +34,24 @@ public class MojangProvider implements ISkinProvider {
         if (filter != null)
             skin.setSkinFilter(filter);
         SharedPool.execute(() -> {
-            // 仅正版；离线名不得请求 Mojang
-            if (Shared.isOfflinePlayer(profile.getPlayerID(), profile.getPlayerName()))
+            String name = profile.getPlayerName();
+            if (Shared.isBlank(name))
                 return;
-            GameProfile original = (GameProfile) profile.getOriginal();
-            if (original == null || original.properties() == null)
-                return;
-            // 属性名为 textures 的 value 是 base64 JSON
-            String encoded = null;
-            for (Property property : original.properties().values()) {
-                if ("textures".equals(property.name())) {
-                    encoded = property.value();
-                    break;
-                }
+            UUID id = profile.getPlayerID();
+            // 离线 UUID：按用户名解析正版（缓存）；非正版则放弃
+            if (id == null || Shared.isOfflinePlayer(id, name)) {
+                GameProfile resolved = MojangService.resolveBlocking(name);
+                if (resolved == Shared.DUMMY || resolved.id() == null)
+                    return;
+                if (Shared.isOfflinePlayer(resolved.id(), resolved.name() == null ? name : resolved.name()))
+                    return;
+                id = resolved.id();
             }
-            if (encoded == null || encoded.isEmpty())
+            Optional<MojangService.TextureSource> source = MojangService.fetchTextureSource(id, kind == Kind.SKIN);
+            if (source.isEmpty())
                 return;
-            String url;
-            String model = "default";
-            try {
-                String json = new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
-                JsonObject root = JsonParser.parseString(json).getAsJsonObject();
-                if (!root.has("textures"))
-                    return;
-                JsonObject textures = root.getAsJsonObject("textures");
-                String key = kind == Kind.SKIN ? "SKIN" : "CAPE";
-                if (!textures.has(key))
-                    return;
-                JsonObject node = textures.getAsJsonObject(key);
-                if (!node.has("url"))
-                    return;
-                url = node.get("url").getAsString();
-                if (kind == Kind.SKIN && node.has("metadata") && node.getAsJsonObject("metadata").has("model"))
-                    model = node.getAsJsonObject("metadata").get("model").getAsString();
-            } catch (RuntimeException e) {
-                return;
-            }
-            String skinModel = model;
+            String url = source.get().url();
+            String model = source.get().model();
             Shared.downloadSkin(url, Runnable::run).thenAccept(opt -> {
                 byte[] data = opt.orElse(null);
                 if (data == null || !ImageUtils.validateData(data))
@@ -80,7 +59,7 @@ public class MojangProvider implements ISkinProvider {
                 if (kind == Kind.CAPE)
                     skin.put(data, "cape");
                 else
-                    skin.put(data, "slim".equals(skinModel) ? "slim" : "default");
+                    skin.put(data, "slim".equals(model) ? "slim" : "default");
             });
         });
         return skin;

@@ -20,7 +20,7 @@
     ]
   },
   "mixins": [
-    "offlineskins-mixins.json"
+    "offlineskins.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

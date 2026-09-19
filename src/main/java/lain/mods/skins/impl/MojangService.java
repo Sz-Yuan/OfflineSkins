@@ -67,6 +67,10 @@ public class MojangService {
         return conn;
     }
 
+    // 纹理下载源：url + 模型（skin 才有 model）
+    public record TextureSource(@NonNull String url, @NonNull String model) {
+    }
+
     // 按 UUID 从 sessionserver 拉取 profile（含 textures 属性）
     private static @Nullable GameProfile fetchSessionProfile(@NonNull UUID id) throws IOException {
         String url = String.format("https://sessionserver.mojang.com/session/minecraft/profile/%s", undashed(id));
@@ -190,6 +194,53 @@ public class MojangService {
         if (Objects.nonNull(cached))
             return Futures.immediateFuture(cached.orElse(Shared.DUMMY));
         return Shared.submitTask(() -> resolvedProfiles.getUnchecked(username).orElse(Shared.DUMMY));
+    }
+
+    // 阻塞解析用户名 → 正版档案（走缓存；供 Provider 在线程池内使用）
+    public static @NonNull GameProfile resolveBlocking(@NonNull String username) {
+        return resolvedProfiles.getUnchecked(username).orElse(Shared.DUMMY);
+    }
+
+    // 阻塞按正版 UUID 拉取 textures 下载源；失败返回 empty
+    // 直接解析 sessionserver JSON，不依赖 GameProfile.properties
+    public static @NonNull Optional<TextureSource> fetchTextureSource(@NonNull UUID id, boolean skin) {
+        return Shared.call(() -> {
+            String url = String.format("https://sessionserver.mojang.com/session/minecraft/profile/%s", undashed(id));
+            HttpURLConnection conn = open(url);
+            int code = conn.getResponseCode();
+            if (code / 100 != 2)
+                return Optional.empty();
+            String body = readBody(conn);
+            JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+            if (!root.has("properties") || !root.get("properties").isJsonArray())
+                return Optional.empty();
+            JsonArray arr = root.getAsJsonArray("properties");
+            for (JsonElement el : arr) {
+                if (!el.isJsonObject())
+                    continue;
+                JsonObject p = el.getAsJsonObject();
+                if (!p.has("name") || !p.has("value") || !"textures".equals(p.get("name").getAsString()))
+                    continue;
+                String encoded = p.get("value").getAsString();
+                String json = new String(java.util.Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
+                JsonObject texRoot = JsonParser.parseString(json).getAsJsonObject();
+                if (!texRoot.has("textures"))
+                    return Optional.empty();
+                JsonObject textures = texRoot.getAsJsonObject("textures");
+                String key = skin ? "SKIN" : "CAPE";
+                if (!textures.has(key))
+                    return Optional.empty();
+                JsonObject node = textures.getAsJsonObject(key);
+                if (!node.has("url"))
+                    return Optional.empty();
+                String texUrl = node.get("url").getAsString();
+                String model = "default";
+                if (skin && node.has("metadata") && node.getAsJsonObject("metadata").has("model"))
+                    model = node.getAsJsonObject("metadata").get("model").getAsString();
+                return Optional.of(new TextureSource(texUrl, model));
+            }
+            return Optional.empty();
+        }, Optional.empty(), null);
     }
 
 }

@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // 有模组皮肤数据时覆盖 PlayerInfo#getSkin；null 则保持原版
-// 由 offlineskins-mixins.json → fabric.mod.json 加载，IDE「未使用」为误报
 @SuppressWarnings("unused")
 @Mixin(PlayerInfo.class)
 public abstract class PlayerListEntryMixin {

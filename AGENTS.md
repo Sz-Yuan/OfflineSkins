@@ -23,7 +23,7 @@ CurseForge description is user-facing marketing — when it conflicts with code 
 
 ## Architecture
 
-Entrypoint: `lain.mods.skins.init.fabric.FabricOfflineSkins` (`ClientModInitializer` only). Mixins package: `lain.mods.skins.init.fabric.mixins` (`offlineskins-mixins.json`).
+Entrypoint: `lain.mods.skins.init.fabric.FabricOfflineSkins` (`ClientModInitializer` only). Mixins package: `lain.mods.skins.init.fabric.mixins` (`offlineskins.mixins.json`).
 
 | Path | Role |
 |------|------|
@@ -46,12 +46,12 @@ MC-facing code belongs in `init/fabric`, `impl/fabric`, mixins, and providers th
 - **Skin model**: legacy skins (`width == height * 2`) are converted by `ImageUtils.legacyFilter`; `judgeSkinType` reports slim when alpha at scaled pixel `(55, 20)` is 0, else default.
 - **Client-only**: `fabric.mod.json` registers only a `client` entrypoint; mixins live under `"client"`. Do not claim dedicated-server support.
 - Mixin refmap name: Loom `defaultRefmapName = "${archivesBaseName}-refmap.json"` → `offlineskins-refmap.json` (must match mixins json).
-- `offlineskins-mixins.json` `compatibilityLevel` is `JAVA_8` even though compile target is 21 — leave unless intentionally changing mixin compatibility.
+- `offlineskins.mixins.json` `compatibilityLevel` is `JAVA_8` even though compile target is 21 — leave unless intentionally changing mixin compatibility.
 - `PlayerListHudMixin` forces a boolean to `true` so the tab list renders with skins; `SkullBlockEntityRendererMixin` inject has `require = 0` (optional). Skin injection points return early when the mod has no ready data.
 - Texture cache: dynamic `Identifier`s under `offlineskins:textures/generated/...` via `WeakHashMap`; removal listener destroys textures on the render thread.
 
 ## Working in this repo
 
-- Sources: `src/main/java` only. Resources: `src/main/resources` (`fabric.mod.json`, `offlineskins-mixins.json`). No test source set.
+- Sources: `src/main/java` only. Resources: `src/main/resources` (`fabric.mod.json`, `offlineskins.mixins.json`). No test source set.
 - After MC/API changes, prefer compile + in-game client check over static-only review — behavior is almost entirely runtime (providers + mixins).
 - This directory may not be a git worktree; verify with `Test-Path .git` before assuming commit/PR workflow.
