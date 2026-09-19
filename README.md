@@ -1,5 +1,7 @@
 # OfflineSkins
 
+**Language:** 中文 | [English](./README_EN.md)
+
 让 Minecraft **离线模式**服务器（以及本地世界）也能显示玩家的正版皮肤与披风。
 
 客户端模组：只需装在你自己客户端上，无需服务端安装同名模组。
