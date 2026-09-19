@@ -4,6 +4,7 @@
   "version": "${version}",
   "name": "OfflineSkins",
   "description": "made it possible to cache your skins for offline use",
+  "icon": "assets/offlineskins/icon.png",
   "authors": [
     "zlainsama"
   ],
