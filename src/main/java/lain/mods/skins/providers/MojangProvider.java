@@ -40,10 +40,12 @@ public class MojangProvider implements ISkinProvider {
             UUID id = profile.getPlayerID();
             // 离线 UUID：按用户名解析正版（缓存）；非正版则放弃
             if (id == null || Shared.isOfflinePlayer(id, name)) {
+                // resolveBlocking 保证非 null，失败时为 Shared.DUMMY
                 GameProfile resolved = MojangService.resolveBlocking(name);
                 if (resolved == Shared.DUMMY || resolved.id() == null)
                     return;
-                if (Shared.isOfflinePlayer(resolved.id(), resolved.name() == null ? name : resolved.name()))
+                String resolvedName = resolved.name() == null ? name : resolved.name();
+                if (Shared.isOfflinePlayer(resolved.id(), resolvedName))
                     return;
                 id = resolved.id();
             }

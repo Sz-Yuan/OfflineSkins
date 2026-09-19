@@ -99,7 +99,7 @@ public class FabricOfflineSkins implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // 每 tick 预热世界内玩家的皮肤请求
+        // 每 tick 预热世界内玩家的皮肤请求（异步，不阻塞主线程）
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.level != null) {
                 for (AbstractClientPlayer player : mc.level.players()) {
