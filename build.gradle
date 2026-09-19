@@ -1,0 +1,73 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "loader_version", project.loader_version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "fabric_api_version", project.fabric_api_version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "loader_version": project.loader_version,
+                "minecraft_version": project.minecraft_version,
+                "fabric_api_version": project.fabric_api_version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from("LICENSE.txt") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+// Signing is optional; remapJar may be registered after evaluation (Loom 1.17+).
+tasks.matching { it.name == 'remapJar' }.configureEach {
+    doLast {
+        if (System.getenv('SIGNJAR_KEYSTORE') != null) {
+            def keystore = File.createTempFile('keystore-', '.jks', getTemporaryDir()).toString()
+
+            file(keystore).withOutputStream { output ->
+                output.write(Base64.getDecoder().decode(System.getenv('SIGNJAR_KEYSTORE')))
+            }
+            ant.signjar(
+                    jar: archiveFile.get(),
+                    signedJar: archiveFile.get(),
+                    keystore: keystore,
+                    alias: System.getenv('SIGNJAR_ALIAS'),
+                    storepass: System.getenv('SIGNJAR_STOREPASS'),
+                    keypass: System.getenv('SIGNJAR_KEYPASS'),
+                    preservelastmodified: "true"
+            )
+
+            delete keystore
+        }
+    }
+}
