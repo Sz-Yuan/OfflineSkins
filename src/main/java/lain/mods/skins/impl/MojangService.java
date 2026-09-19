@@ -5,10 +5,10 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
-import com.mojang.util.UUIDTypeAdapter;
+import com.mojang.authlib.properties.PropertyMap;
 import lain.mods.skins.impl.fabric.MinecraftUtils;
 
 import java.io.BufferedReader;
@@ -17,13 +17,22 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class MojangService {
+
+    /** Mojang profile ids are undashed hex; UUID.fromString needs dashes. */
+    private static UUID parseUuid(String id) {
+        String s = id.replace("-", "");
+        if (s.length() != 32)
+            return UUID.fromString(id);
+        return new UUID(
+                Long.parseUnsignedLong(s.substring(0, 16), 16),
+                Long.parseUnsignedLong(s.substring(16, 32), 16));
+    }
 
     private static final LoadingCache<GameProfile, Optional<GameProfile>> filledProfiles = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.HOURS).refreshAfterWrite(30, TimeUnit.MINUTES).build(new CacheLoader<GameProfile, Optional<GameProfile>>() {
 
@@ -56,8 +65,6 @@ public class MojangService {
 
     private static final LoadingCache<String, Optional<GameProfile>> resolvedProfiles = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.HOURS).refreshAfterWrite(30, TimeUnit.MINUTES).build(new CacheLoader<String, Optional<GameProfile>>() {
 
-        private final Gson gson = new GsonBuilder().registerTypeAdapter(UUID.class, new UUIDTypeAdapter()).create();
-
         @Override
         public Optional<GameProfile> load(String key) throws Exception {
             if (Shared.isBlank(key)) // can't resolve this
@@ -81,10 +88,15 @@ public class MojangService {
                 try (InputStream in = conn.getInputStream()) {
                     StringBuilder buf = new StringBuilder();
                     readLines(in, buf);
-                    GameProfile constructed = gson.fromJson(buf.toString(), GameProfile.class);
-                    if (Shared.isOfflinePlayer(constructed.id(), constructed.name())) // why does the server return an offline profile? treat it as not found.
+                    // Authlib GameProfile is a record; do not Gson-reflect it (JSON has no properties).
+                    JsonObject obj = JsonParser.parseString(buf.toString()).getAsJsonObject();
+                    if (!obj.has("id") || !obj.has("name"))
                         return Shared.DUMMY;
-                    return new GameProfile(constructed.id(), constructed.name()); // reconstruct it because default JsonDeserializer doesn't construct a GameProfile properly, can't use GameProfileSerializer because it's a private class.
+                    UUID id = parseUuid(obj.get("id").getAsString());
+                    String name = obj.get("name").getAsString();
+                    if (Shared.isOfflinePlayer(id, name)) // why does the server return an offline profile? treat it as not found.
+                        return Shared.DUMMY;
+                    return new GameProfile(id, name, PropertyMap.EMPTY);
                 }
             }
             return null;
