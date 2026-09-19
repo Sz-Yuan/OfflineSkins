@@ -1,6 +1,7 @@
 package lain.mods.skins.impl;
 
 import lain.mods.skins.api.interfaces.ISkin;
+import org.jspecify.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -63,17 +64,17 @@ public class SkinData implements ISkin {
     }
 
     @Override
-    public boolean setRemovalListener(Consumer<ISkin> listener) {
+    public void setRemovalListener(@Nullable Consumer<ISkin> listener) {
         if (listener == null || listeners.contains(listener))
-            return false;
-        return listeners.add(listener);
+            return;
+        listeners.add(listener);
     }
 
     @Override
-    public boolean setSkinFilter(Function<ByteBuffer, ByteBuffer> filter) {
+    public void setSkinFilter(@Nullable Function<ByteBuffer, ByteBuffer> filter) {
         if (filter == null || filters.contains(filter))
-            return false;
-        return filters.add(filter);
+            return;
+        filters.add(filter);
     }
 
 }

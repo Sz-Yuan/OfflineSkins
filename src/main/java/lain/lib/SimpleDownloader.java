@@ -2,6 +2,7 @@ package lain.lib;
 
 import java.io.IOException;
 import java.net.Proxy;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -39,18 +40,18 @@ public final class SimpleDownloader {
         }
     }
 
-    private static boolean deleteIfExists(Path path, Consumer<Throwable> onException) {
+    // 删除临时文件；不关心是否真正删成
+    private static void deleteQuietly(Path path, Consumer<Throwable> onException) {
         try {
-            return Files.deleteIfExists(path);
+            Files.deleteIfExists(path);
         } catch (Throwable e) {
             if (onException != null)
                 onException.accept(e);
-            return false;
         }
     }
 
     private static <T extends Throwable> Consumer<T> deleteOnExceptionDecor(Path path, Consumer<T> onException) {
-        Consumer<T> deleteOnException = e -> deleteIfExists(path, SimpleDownloader::rethrowIfNonIOException);
+        Consumer<T> deleteOnException = ignored -> deleteQuietly(path, SimpleDownloader::rethrowIfNonIOException);
         return onException == null ? deleteOnException : deleteOnException.andThen(onException);
     }
 
@@ -60,7 +61,7 @@ public final class SimpleDownloader {
         return t -> {
             if (predicate.test(t))
                 return true;
-            deleteIfExists(path, SimpleDownloader::rethrowIfNonIOException);
+            deleteQuietly(path, SimpleDownloader::rethrowIfNonIOException);
             return false;
         };
     }
@@ -85,7 +86,7 @@ public final class SimpleDownloader {
     // 将资源地址转为 URL；非法地址时回调并返回空
     private static Optional<URL> resource(String resource, Consumer<Throwable> onException) {
         try {
-            return Optional.of(java.net.URI.create(resource).toURL());
+            return Optional.of(URI.create(resource).toURL());
         } catch (Throwable e) {
             if (onException != null)
                 onException.accept(e);
@@ -101,24 +102,19 @@ public final class SimpleDownloader {
 
     private static void runAsync(Runnable runnable, Executor executor) {
         if (executor == null)
-            CompletableFuture.runAsync(runnable);
+            CompletableFuture.runAsync(runnable).exceptionally(ignored -> null);
         else
-            CompletableFuture.runAsync(runnable, executor);
+            CompletableFuture.runAsync(runnable, executor).exceptionally(ignored -> null);
     }
 
-    private static boolean sleep(long millis, Consumer<Throwable> onException) {
+    // 重试前固定等待 1 秒
+    private static void sleep(Consumer<Throwable> onException) {
         try {
-            Thread.sleep(millis);
-            return true;
+            Thread.sleep(1000L);
         } catch (Throwable e) {
             if (onException != null)
                 onException.accept(e);
-            return false;
         }
-    }
-
-    public static CompletableFuture<Optional<Path>> start(String resource) {
-        return start(resource, null, null, 2, null, SharedPool::execute, null, null, null);
     }
 
     // 异步下载入口：连接 → 临时文件 → 写入；失败 complete 空 Optional
@@ -130,17 +126,31 @@ public final class SimpleDownloader {
                 if (!future.isDone()) {
                     if (preExecute != null)
                         preExecute.accept(Thread.currentThread());
-                    resource(resource, future::completeExceptionally).ifPresent(remote -> {
-                        Retries.retrying(() -> {
-                            if (!future.isDone()) {
-                                connect(remote, proxy, preConnect, Retries::rethrow).ifPresent(conn -> {
-                                    tempFile(tempDir, future::completeExceptionally).ifPresent(local -> {
-                                        download(local, conn, digest, deleteOnFalseDecor(local, shouldTransfer), deleteOnExceptionDecor(local, Retries::rethrow)).ifPresent(result -> future.complete(Optional.of(result)));
-                                    });
-                                });
-                            }
-                        }, IOException.class::isInstance, retries -> sleep(1000L, Retries::rethrow), maxRetries).toRunnable(future::completeExceptionally).run();
-                    });
+                    resource(resource, future::completeExceptionally).ifPresent(remote -> Retries
+                            .retrying(
+                                    () -> {
+                                        if (future.isDone())
+                                            return;
+                                        connect(remote, proxy, preConnect, Retries::rethrow).ifPresent(conn -> {
+                                            Optional<Path> localOpt = tempFile(tempDir, future::completeExceptionally);
+                                            if (localOpt.isEmpty())
+                                                return;
+                                            Path local = localOpt.get();
+                                            Optional<Path> out = download(
+                                                    local,
+                                                    conn,
+                                                    digest,
+                                                    deleteOnFalseDecor(local, shouldTransfer),
+                                                    deleteOnExceptionDecor(local, Retries::rethrow));
+                                            if (out.isPresent())
+                                                future.complete(out);
+                                        });
+                                    },
+                                    IOException.class::isInstance,
+                                    ignored -> sleep(Retries::rethrow),
+                                    maxRetries)
+                            .toRunnable(future::completeExceptionally)
+                            .run());
                 }
             } finally {
                 if (!future.isDone())

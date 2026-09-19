@@ -6,7 +6,7 @@ public interface ISkinProviderService extends ISkinProvider {
     // 清空已注册的 Provider
     void clearProviders();
 
-    // 注册 Provider；成功返回 true
-    boolean registerProvider(ISkinProvider provider);
+    // 注册 Provider（失败仅忽略该次注册）
+    void registerProvider(ISkinProvider provider);
 
 }

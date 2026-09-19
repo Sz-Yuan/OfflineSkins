@@ -13,7 +13,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // 玩家头颅：有模组皮肤且未禁用时覆盖渲染层
-// 列表在 offlineskins-mixins.json 的 client 段
+// 由 offlineskins-mixins.json 加载，IDE「未使用/Mixin not found」多为误报
+@SuppressWarnings("unused")
 @Mixin(SkullBlockRenderer.class)
 public abstract class SkullBlockEntityRendererMixin {
 

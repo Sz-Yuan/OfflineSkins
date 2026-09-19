@@ -1,6 +1,9 @@
 package lain.mods.skins.api;
 
-import com.google.common.cache.*;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalNotification;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import lain.lib.SharedPool;
@@ -8,12 +11,15 @@ import lain.mods.skins.api.interfaces.IPlayerProfile;
 import lain.mods.skins.api.interfaces.ISkin;
 import lain.mods.skins.api.interfaces.ISkinProvider;
 import lain.mods.skins.api.interfaces.ISkinProviderService;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ManagedBlocker;
@@ -27,15 +33,15 @@ import java.util.stream.Collectors;
 public class SkinProviderAPI {
 
     // 空实现：无数据、不可监听
-    public static final ISkin DUMMY = new ISkin() {
+    public static final @NonNull ISkin DUMMY = new ISkin() {
 
         @Override
-        public ByteBuffer getData() {
+        public @Nullable ByteBuffer getData() {
             return null;
         }
 
         @Override
-        public String getSkinType() {
+        public @Nullable String getSkinType() {
             return null;
         }
 
@@ -49,66 +55,60 @@ public class SkinProviderAPI {
         }
 
         @Override
-        public boolean setRemovalListener(Consumer<ISkin> listener) {
-            return false;
+        public void setRemovalListener(@Nullable Consumer<ISkin> listener) {
         }
 
         @Override
-        public boolean setSkinFilter(Function<ByteBuffer, ByteBuffer> filter) {
-            return false;
+        public void setSkinFilter(@Nullable Function<ByteBuffer, ByteBuffer> filter) {
         }
 
     };
 
     // 身体皮肤服务
-    public static final ISkinProviderService SKIN = create();
+    public static final @NonNull ISkinProviderService SKIN = create();
     // 披风服务
-    public static final ISkinProviderService CAPE = create();
+    public static final @NonNull ISkinProviderService CAPE = create();
 
     // 默认实现：按档案聚合各 Provider 的 ISkin；档案更新时最多等 10 秒再替换 Bundle
-    public static ISkinProviderService create() {
+    public static @NonNull ISkinProviderService create() {
         return new ISkinProviderService() {
 
-            private final LoadingCache<SkinBundle, AtomicReference<Object>> reloading;
-            private final LoadingCache<IPlayerProfile, SkinBundle> cache;
-            private final List<ISkinProvider> providers;
-            private final Consumer<IPlayerProfile> profileChangeListener;
+            private final @NonNull LoadingCache<SkinBundle, AtomicReference<Object>> reloading;
+            private final @NonNull LoadingCache<IPlayerProfile, SkinBundle> cache;
+            private final @NonNull List<ISkinProvider> providers;
+            private final @NonNull Consumer<IPlayerProfile> profileChangeListener;
 
             {
                 reloading = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<>() {
 
                     @Override
-                    public AtomicReference<Object> load(SkinBundle key) {
+                    public @NonNull AtomicReference<Object> load(@NonNull SkinBundle key) {
                         return new AtomicReference<>();
                     }
 
                 });
-                cache = CacheBuilder.newBuilder().expireAfterAccess(Duration.ofSeconds(15)).removalListener(new RemovalListener<IPlayerProfile, SkinBundle>() {
+                cache = CacheBuilder.newBuilder().expireAfterAccess(Duration.ofSeconds(15)).removalListener(
+                        (RemovalNotification<IPlayerProfile, SkinBundle> notification) -> {
+                            SkinBundle skin = notification.getValue();
+                            if (skin != null)
+                                skin.onRemoval();
+                        }).build(new CacheLoader<>() {
 
                     @Override
-                    public void onRemoval(RemovalNotification<IPlayerProfile, SkinBundle> notification) {
-                        SkinBundle skin = notification.getValue();
-                        if (skin != null)
-                            skin.onRemoval();
-                    }
-
-                }).build(new CacheLoader<>() {
-
-                    @Override
-                    public SkinBundle load(IPlayerProfile key) {
+                    public @NonNull SkinBundle load(@NonNull IPlayerProfile key) {
                         key.setUpdateListener(profileChangeListener);
                         return new SkinBundle().set(providers.stream()
                                 .map(provider -> provider.getSkin(key))
-                                .filter(skin -> skin != null)
+                                .filter(Objects::nonNull)
                                 .collect(Collectors.toCollection(ArrayList::new)));
                     }
 
                     @Override
-                    public ListenableFuture<SkinBundle> reload(IPlayerProfile key, SkinBundle oldValue) {
+                    public @NonNull ListenableFuture<SkinBundle> reload(@NonNull IPlayerProfile key, @NonNull SkinBundle oldValue) {
                         // 重新收集各 Provider 的 ISkin
                         Collection<ISkin> skins = providers.stream()
                                 .map(provider -> provider.getSkin(key))
-                                .filter(skin -> skin != null)
+                                .filter(Objects::nonNull)
                                 .collect(Collectors.toCollection(ArrayList::new));
                         // 后台最多等待 10 秒，任一数据就绪或超时后更新 Bundle
                         Object token;
@@ -154,7 +154,7 @@ public class SkinProviderAPI {
                 });
                 providers = new CopyOnWriteArrayList<>();
                 profileChangeListener = profile -> {
-                    if (cache.getIfPresent(profile) != null)
+                    if (Objects.nonNull(cache.getIfPresent(profile)))
                         cache.refresh(profile);
                 };
             }
@@ -166,17 +166,17 @@ public class SkinProviderAPI {
             }
 
             @Override
-            public ISkin getSkin(IPlayerProfile profile) {
+            public @NonNull ISkin getSkin(@Nullable IPlayerProfile profile) {
                 if (profile == null)
                     return DUMMY;
                 return cache.getUnchecked(profile);
             }
 
             @Override
-            public boolean registerProvider(ISkinProvider provider) {
+            public void registerProvider(@Nullable ISkinProvider provider) {
                 if (provider == null || provider == this)
-                    return false;
-                return providers.add(provider);
+                    return;
+                providers.add(provider);
             }
 
         };

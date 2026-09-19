@@ -150,7 +150,10 @@ public class FabricOfflineSkins implements ClientModInitializer {
         }
         try {
             ConfigOptions config = gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), ConfigOptions.class);
-            return config != null ? config : new ConfigOptions().defaultOptions();
+            if (config == null)
+                config = new ConfigOptions().defaultOptions();
+            config.validate();
+            return config;
         } catch (Throwable t) {
             LOGGER.error("[OfflineSkins] 读取配置失败，使用默认值", t);
             return new ConfigOptions().defaultOptions();

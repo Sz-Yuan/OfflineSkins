@@ -1,5 +1,7 @@
 package lain.mods.skins.api.interfaces;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -15,7 +17,7 @@ public interface IPlayerProfile {
     // 档案用户名
     String getPlayerName();
 
-    // 档案更新监听；null 或重复注册返回 false，勿大量堆积监听
-    boolean setUpdateListener(Consumer<IPlayerProfile> listener);
+    // 档案更新监听；null 或重复注册时忽略，勿大量堆积监听
+    void setUpdateListener(@Nullable Consumer<IPlayerProfile> listener);
 
 }

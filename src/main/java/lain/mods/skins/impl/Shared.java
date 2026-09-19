@@ -9,10 +9,10 @@ import lain.lib.Retries;
 import lain.lib.SharedPool;
 import lain.lib.SimpleDownloader;
 import lain.mods.skins.impl.fabric.MinecraftUtils;
+import org.jspecify.annotations.NonNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -28,18 +28,16 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 // 共享工具：离线判定、下载、文件读取等
 public class Shared {
 
     // 占位档案：表示无效/失败结果
-    public static final GameProfile DUMMY = new GameProfile(UUID.fromString("ae9460f5-bf72-468e-89b6-4eead59001ad"), "");
+    public static final @NonNull GameProfile DUMMY = new GameProfile(UUID.fromString("ae9460f5-bf72-468e-89b6-4eead59001ad"), "");
 
     // 离线 UUID 判定结果缓存
-    private static final Cache<UUID, Boolean> offlines = CacheBuilder.newBuilder().weakKeys().build();
+    private static final @NonNull Cache<UUID, Boolean> offlines = CacheBuilder.newBuilder().weakKeys().build();
 
     // 执行 callable，异常时返回 defaultValue 并交给 consumer
     public static <T> T call(Callable<T> callable, T defaultValue, Consumer<Throwable> consumer) {
@@ -69,7 +67,7 @@ public class Shared {
     public static CompletableFuture<Optional<byte[]>> downloadSkin(String resource, Executor executor) {
         return SimpleDownloader
                 .start(encodeURL(resource), null, MinecraftUtils.getProxy(), 2, null, executor, null, Shared::preConnect, Shared::stopIfHttpClientError)
-                .thenApply(Shared::readAndDelete);
+                .thenApply(opt -> opt.flatMap(Shared::readFileAndDelete));
     }
 
     // URL 编码失败时回退原串
@@ -113,21 +111,12 @@ public class Shared {
     }
 
     // 读取临时文件内容并删除文件
-    private static Optional<byte[]> readAndDelete(Optional<Path> path) {
-        try (FileChannel channel = FileChannel.open(path.orElseThrow(FileNotFoundException::new), StandardOpenOption.READ, StandardOpenOption.DELETE_ON_CLOSE); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+    private static Optional<byte[]> readFileAndDelete(Path path) {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.DELETE_ON_CLOSE); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             channel.transferTo(0L, Long.MAX_VALUE, Channels.newChannel(baos));
             return Optional.of(baos.toByteArray());
         } catch (IOException e) {
             return Optional.empty();
-        }
-    }
-
-    public static boolean sleep(long millis) {
-        try {
-            Thread.sleep(millis);
-            return true;
-        } catch (InterruptedException e) {
-            return false;
         }
     }
 
@@ -147,9 +136,6 @@ public class Shared {
         ListenableFutureTask<T> future = ListenableFutureTask.create(callable);
         SharedPool.execute(future);
         return future;
-    }
-
-    private interface SupplierBlocker<T> extends Supplier<T>, ForkJoinPool.ManagedBlocker {
     }
 
 }
