@@ -4,48 +4,25 @@ import java.nio.ByteBuffer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+// 皮肤数据接口：由 Provider 异步填充，游戏侧只读
 public interface ISkin {
 
-    /**
-     * @return the ByteBuffer for the skin.
-     */
+    // 皮肤图像字节；未就绪时可能为 null
     ByteBuffer getData();
 
-    /**
-     * @return "default" for classical 4-pixel arms, "slim" for 3-pixel slim arms, "legacy" for old skin format, "cape" for capes. (note that "legacy" and "cape" are not official things)
-     */
+    // "default"=宽臂, "slim"=细臂, "legacy"=旧版格式, "cape"=披风（后两者非官方命名）
     String getSkinType();
 
-    /**
-     * @return true if the ByteBuffer is ready for use.
-     */
+    // 数据是否已可提交给游戏
     boolean isDataReady();
 
-    /**
-     * Do cleanup when this gets called. <br>
-     * Listeners will be notified before anything is done, and then, resources will be released.
-     */
+    // 清理回调：先通知监听器，再释放资源
     void onRemoval();
 
-    /**
-     * Set a listener to be notified when {@link #onRemoval() onRemoval()} is called, and before anything is done to the resources. <br>
-     * Multiple listeners will be called one by one in order.
-     *
-     * @param listener the listener to set.
-     * @return true if successful, null and duplicates will fail.
-     */
+    // 注册移除监听；null 或重复注册返回 false
     boolean setRemovalListener(Consumer<ISkin> listener);
 
-    /**
-     * Set a filter to perform an action on the data and possibly transform it before it got pushed to the game. <br>
-     * The returned buffer will be used instead of the original. <br>
-     * Multiple filters will be applied one by one in a chain. <br>
-     * Don't forget to {@link ByteBuffer#rewind() rewind()} before return it if you modified it's state. <br>
-     * Make sure the final buffer is a direct buffer, see {@link org.lwjgl.BufferUtils BufferUtils}, otherwise the game will fail.
-     *
-     * @param filter the filter to set.
-     * @return true if successful, null and duplicates will fail.
-     */
+    // 注册数据过滤器（链式）；提交前若改过 buffer 状态需 rewind，且最终应为 direct buffer
     boolean setSkinFilter(Function<ByteBuffer, ByteBuffer> filter);
 
 }

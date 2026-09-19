@@ -10,56 +10,52 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerModelType;
 import net.minecraft.world.entity.player.PlayerSkin;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+// 构造 mixin 用的 PlayerSkin；返回 null 表示模组不介入
 public class SkinUtils {
 
-    private static final Function<GameProfile, Identifier> SKIN = (profile) -> FabricOfflineSkins.getLocationSkin(profile, null);
-    private static final Function<GameProfile, Identifier> CAPE = (profile) -> FabricOfflineSkins.getLocationCape(profile, null);
-    private static final Function<GameProfile, PlayerModelType> MODEL = (profile) -> PlayerModelType.byLegacyServicesName(FabricOfflineSkins.getSkinType(profile, null));
+    private static final Function<GameProfile, Identifier> SKIN = profile -> FabricOfflineSkins.getLocationSkin(profile, null);
+    private static final Function<GameProfile, Identifier> CAPE = profile -> FabricOfflineSkins.getLocationCape(profile, null);
+    private static final Function<GameProfile, PlayerModelType> MODEL = profile -> PlayerModelType.byLegacyServicesName(FabricOfflineSkins.getSkinType(profile, null));
 
-    private static ClientAsset.Texture textureOrNull(Identifier location) {
-        // Dynamic textures are registered at this Identifier; expose it as both id and texturePath.
+    // 动态贴图已注册在该 Identifier 上
+    private static ClientAsset.Texture wrap(Identifier location) {
         return location == null ? null : new ClientAsset.ResourceTexture(location, location);
     }
 
-    private static Identifier pathOrNull(ClientAsset.Texture texture) {
-        return texture == null ? null : texture.texturePath();
-    }
-
-    private static final LoadingCache<GameProfile, Supplier<PlayerSkin>> textureSuppliers = CacheBuilder
+    private static final LoadingCache<GameProfile, Supplier<PlayerSkin>> suppliers = CacheBuilder
             .newBuilder()
-            .expireAfterAccess(15, TimeUnit.SECONDS)
-            .build(new CacheLoader<GameProfile, Supplier<PlayerSkin>>() {
+            .expireAfterAccess(Duration.ofSeconds(15))
+            .build(new CacheLoader<>() {
                 @Override
                 public Supplier<PlayerSkin> load(GameProfile profile) {
-                    AtomicReference<PlayerSkin> HOLDER = new AtomicReference<>();
+                    AtomicReference<PlayerSkin> holder = new AtomicReference<>();
                     return () -> {
-                        PlayerSkin textures = HOLDER.get();
-                        Identifier skinTexture = SKIN.apply(profile);
-                        Identifier capeTexture = CAPE.apply(profile);
+                        Identifier skinId = SKIN.apply(profile);
+                        // 无本地/官方数据 → 保持 null，不覆盖 getSkin
+                        if (skinId == null)
+                            return null;
+                        Identifier capeId = CAPE.apply(profile);
                         PlayerModelType model = MODEL.apply(profile);
-                        if (textures == null) {
-                            if (skinTexture != null) {
-                                if (!HOLDER.compareAndSet(null, textures = new PlayerSkin(textureOrNull(skinTexture), textureOrNull(capeTexture), null, model, false)))
-                                    textures = HOLDER.get();
-                            }
-                        } else if (skinTexture != null) {
-                            if (pathOrNull(textures.body()) != skinTexture || pathOrNull(textures.cape()) != capeTexture || textures.model() != model) {
-                                if (!HOLDER.compareAndSet(textures, textures = new PlayerSkin(textureOrNull(skinTexture), textureOrNull(capeTexture), null, model, false)))
-                                    textures = HOLDER.get();
-                            }
+                        PlayerSkin current = holder.get();
+                        if (current == null
+                                || current.body().texturePath() != skinId
+                                || (current.cape() == null ? capeId != null : current.cape().texturePath() != capeId)
+                                || current.model() != model) {
+                            holder.set(new PlayerSkin(wrap(skinId), wrap(capeId), null, model, false));
+                            current = holder.get();
                         }
-                        return textures;
+                        return current;
                     };
                 }
             });
 
     public static PlayerSkin textures(GameProfile profile) {
-        return textureSuppliers.getUnchecked(profile).get();
+        return suppliers.getUnchecked(profile).get();
     }
 
 }

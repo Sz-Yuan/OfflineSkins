@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 
 import java.net.Proxy;
 
+// Minecraft 客户端工具
 public class MinecraftUtils {
 
     public static Proxy getProxy() {

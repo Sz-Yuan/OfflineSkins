@@ -10,14 +10,16 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+// 皮肤图像：校验、类型判断、旧版布局转换
 public class ImageUtils {
 
+    // 根据宽高与透明度判断 slim / default；宽=2×高视为旧版，仍报 default（由过滤器转换）
     public static String judgeSkinType(byte[] data) {
         try (NativeImage image = NativeImage.read(new ByteArrayInputStream(data))) {
             int w = image.getWidth();
             int h = image.getHeight();
             if (w == h * 2)
-                return "default"; // it's actually "legacy", but there will always be a filter to convert them into "default".
+                return "default";
             if (w == h) {
                 int r = Math.max(w / 64, 1);
                 if (((image.getPixel(55 * r, 20 * r) & 0xFF000000) >>> 24) == 0)
@@ -30,12 +32,13 @@ public class ImageUtils {
         }
     }
 
+    // 旧版 64×32 皮肤转换为现代布局；失败时原样返回
     public static ByteBuffer legacyFilter(ByteBuffer buffer) {
         try (NativeImage input = NativeImage.read(buffer); NativeImage output = new NativeImage(input.getWidth(), input.getWidth(), true)) {
             int r = Math.max(input.getWidth() / 64, 1);
-            boolean f = input.getWidth() == input.getHeight() * 2;
+            boolean legacy = input.getWidth() == input.getHeight() * 2;
             output.copyFrom(input);
-            if (f) {
+            if (legacy) {
                 output.fillRect(0 * r, 32 * r, 64 * r, 32 * r, 0);
                 output.copyRect(4 * r, 16 * r, 16 * r, 32 * r, 4 * r, 4 * r, true, false);
                 output.copyRect(8 * r, 16 * r, 16 * r, 32 * r, 4 * r, 4 * r, true, false);
@@ -52,7 +55,7 @@ public class ImageUtils {
             }
 
             setAreaOpaque(output, 0 * r, 0 * r, 32 * r, 16 * r);
-            if (f)
+            if (legacy)
                 setAreaTransparent(output, 32 * r, 0 * r, 64 * r, 32 * r);
             setAreaOpaque(output, 0 * r, 16 * r, 64 * r, 32 * r);
             setAreaOpaque(output, 16 * r, 48 * r, 48 * r, 64 * r);
@@ -92,6 +95,7 @@ public class ImageUtils {
                 image.setPixel(l, i1, image.getPixel(l, i1) & 16777215);
     }
 
+    // 能否作为 PNG 解码
     public static boolean validateData(byte[] data) {
         try (NativeImage image = NativeImage.read(new ByteArrayInputStream(data))) {
             return image != null;

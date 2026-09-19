@@ -10,21 +10,23 @@ import lain.mods.skins.api.interfaces.ISkinProvider;
 import lain.mods.skins.api.interfaces.ISkinProviderService;
 
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ManagedBlocker;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+// 对外 API：SKIN / CAPE 两个皮肤服务
 public class SkinProviderAPI {
 
+    // 空实现：无数据、不可监听
     public static final ISkin DUMMY = new ISkin() {
 
         @Override
@@ -58,20 +60,12 @@ public class SkinProviderAPI {
 
     };
 
-    /**
-     * The service for skins.
-     */
+    // 身体皮肤服务
     public static final ISkinProviderService SKIN = create();
-    /**
-     * The service for capes.
-     */
+    // 披风服务
     public static final ISkinProviderService CAPE = create();
 
-    /**
-     * @return an empty ISkinProviderService with default implementation. <br>
-     * a SkinBundle will be created with all available ISkin objects for that IPlayerProfile. <br>
-     * if the profile got updated during the lifetime of a SkinBundle, new ISkin objects will be gathered and a thread will be used to monitor those objects to wait their isDataReady for up to 10 seconds before updating the SkinBundle.
-     */
+    // 默认实现：按档案聚合各 Provider 的 ISkin；档案更新时最多等 10 秒再替换 Bundle
     public static ISkinProviderService create() {
         return new ISkinProviderService() {
 
@@ -81,15 +75,15 @@ public class SkinProviderAPI {
             private final Consumer<IPlayerProfile> profileChangeListener;
 
             {
-                reloading = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<SkinBundle, AtomicReference<Object>>() {
+                reloading = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<>() {
 
                     @Override
-                    public AtomicReference<Object> load(SkinBundle key) throws Exception {
+                    public AtomicReference<Object> load(SkinBundle key) {
                         return new AtomicReference<>();
                     }
 
                 });
-                cache = CacheBuilder.newBuilder().expireAfterAccess(15, TimeUnit.SECONDS).removalListener(new RemovalListener<IPlayerProfile, SkinBundle>() {
+                cache = CacheBuilder.newBuilder().expireAfterAccess(Duration.ofSeconds(15)).removalListener(new RemovalListener<IPlayerProfile, SkinBundle>() {
 
                     @Override
                     public void onRemoval(RemovalNotification<IPlayerProfile, SkinBundle> notification) {
@@ -98,39 +92,35 @@ public class SkinProviderAPI {
                             skin.onRemoval();
                     }
 
-                }).build(new CacheLoader<IPlayerProfile, SkinBundle>() {
+                }).build(new CacheLoader<>() {
 
                     @Override
-                    public SkinBundle load(IPlayerProfile key) throws Exception {
+                    public SkinBundle load(IPlayerProfile key) {
                         key.setUpdateListener(profileChangeListener);
-
-                        return new SkinBundle().set(providers.stream().map(provider -> {
-                            return provider.getSkin(key);
-                        }).filter(skin -> {
-                            return skin != null;
-                        }).collect(Collectors.toCollection(ArrayList::new)));
+                        return new SkinBundle().set(providers.stream()
+                                .map(provider -> provider.getSkin(key))
+                                .filter(skin -> skin != null)
+                                .collect(Collectors.toCollection(ArrayList::new)));
                     }
 
                     @Override
-                    public ListenableFuture<SkinBundle> reload(IPlayerProfile key, SkinBundle oldValue) throws Exception {
-                        // Gather new ISkin objects.
-                        Collection<ISkin> skins = providers.stream().map(provider -> {
-                            return provider.getSkin(key);
-                        }).filter(skin -> {
-                            return skin != null;
-                        }).collect(Collectors.toCollection(ArrayList::new));
-                        // Prepare for monitoring.
+                    public ListenableFuture<SkinBundle> reload(IPlayerProfile key, SkinBundle oldValue) {
+                        // 重新收集各 Provider 的 ISkin
+                        Collection<ISkin> skins = providers.stream()
+                                .map(provider -> provider.getSkin(key))
+                                .filter(skin -> skin != null)
+                                .collect(Collectors.toCollection(ArrayList::new));
+                        // 后台最多等待 10 秒，任一数据就绪或超时后更新 Bundle
                         Object token;
                         reloading.getUnchecked(oldValue).set(token = new Object());
-                        long deadline = System.currentTimeMillis() + 10000; // 10 seconds
-                        Supplier<Boolean> ready = () -> {
-                            return System.currentTimeMillis() - deadline > 0L || reloading.getUnchecked(oldValue).get() != token || skins.stream().filter(ISkin::isDataReady).findAny().isPresent();
-                        };
+                        long deadline = System.currentTimeMillis() + 10000L;
+                        Supplier<Boolean> ready = () -> System.currentTimeMillis() > deadline
+                                || reloading.getUnchecked(oldValue).get() != token
+                                || skins.stream().anyMatch(ISkin::isDataReady);
                         Runnable update = () -> {
                             if (reloading.getUnchecked(oldValue).compareAndSet(token, null))
                                 oldValue.set(skins);
                         };
-
                         if (skins.isEmpty()) {
                             update.run();
                         } else {
@@ -138,7 +128,7 @@ public class SkinProviderAPI {
 
                                 @Override
                                 public boolean block() throws InterruptedException {
-                                    Thread.sleep(1000); // 1 second
+                                    Thread.sleep(1000L);
                                     return ready.get();
                                 }
 
@@ -152,6 +142,7 @@ public class SkinProviderAPI {
                                 try {
                                     ForkJoinPool.managedBlock(blocker);
                                 } catch (InterruptedException e) {
+                                    // 中断时仍尝试提交当前结果
                                 } finally {
                                     update.run();
                                 }

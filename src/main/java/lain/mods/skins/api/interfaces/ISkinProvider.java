@@ -1,13 +1,9 @@
 package lain.mods.skins.api.interfaces;
 
+// 皮肤来源：getSkin 在主线程调用，实现内不得做重阻塞 IO
 public interface ISkinProvider {
 
-    /**
-     * This must not be a heavy blocking task as this will be run from main thread.
-     *
-     * @param profile the profile that is queried about.
-     * @return the ISkin object for the profile, null if unavailable.
-     */
+    // 返回该档案对应的 ISkin；不可用时返回 null
     ISkin getSkin(IPlayerProfile profile);
 
 }

@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+// 玩家头颅：有模组皮肤且未禁用时覆盖渲染层
 @Mixin(SkullBlockRenderer.class)
 public abstract class SkullBlockEntityRendererMixin {
 

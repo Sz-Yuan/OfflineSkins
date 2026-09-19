@@ -1,51 +1,21 @@
 package lain.mods.skins.impl;
 
+// 配置：仅官方 Mojang + 本地缓存；无自定义服/Crafatar
 public class ConfigOptions {
 
+    // 是否启用 Mojang 官方皮肤源
     public boolean useMojang;
-    public boolean useCrafatar;
-    public boolean useCustomServer;
-    public String hostCustomServer;
-    public boolean useCustomServer2;
-    public String hostCustomServer2Skin;
-    public String hostCustomServer2Cape;
+    // true 时不覆盖玩家头颅渲染
     public boolean disablePlayerHeads;
 
-    /**
-     * @return self with all options revert to default.
-     */
     public ConfigOptions defaultOptions() {
         useMojang = true;
-        useCrafatar = true;
-        useCustomServer = false;
-        hostCustomServer = "http://example.com";
-        useCustomServer2 = false;
-        hostCustomServer2Skin = "http://example.com/skins/%auto%";
-        hostCustomServer2Cape = "http://example.com/capes/%auto%";
         disablePlayerHeads = false;
         return this;
     }
 
-    /**
-     * @return true if changed.
-     */
-    public boolean validate() {
-        boolean any = false;
-
-        if (hostCustomServer == null) {
-            hostCustomServer = "http://example.com";
-            any = true;
-        }
-        if (hostCustomServer2Skin == null) {
-            hostCustomServer2Skin = "http://example.com/skins/%auto%";
-            any = true;
-        }
-        if (hostCustomServer2Cape == null) {
-            hostCustomServer2Cape = "http://example.com/capes/%auto%";
-            any = true;
-        }
-
-        return any;
+    public void validate() {
+        // 无强制校验；json 中的旧字段会被 Gson 忽略
     }
 
 }

@@ -32,12 +32,16 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+// 共享工具：离线判定、下载、文件读取等
 public class Shared {
 
+    // 占位档案：表示无效/失败结果
     public static final GameProfile DUMMY = new GameProfile(UUID.fromString("ae9460f5-bf72-468e-89b6-4eead59001ad"), "");
 
+    // 离线 UUID 判定结果缓存
     private static final Cache<UUID, Boolean> offlines = CacheBuilder.newBuilder().weakKeys().build();
 
+    // 执行 callable，异常时返回 defaultValue 并交给 consumer
     public static <T> T call(Callable<T> callable, T defaultValue, Consumer<Throwable> consumer) {
         if (callable == null)
             return defaultValue;
@@ -61,12 +65,14 @@ public class Shared {
         }, defaultContents, consumer);
     }
 
+    // 下载皮肤/披风到临时文件并读入内存
     public static CompletableFuture<Optional<byte[]>> downloadSkin(String resource, Executor executor) {
         return SimpleDownloader
                 .start(encodeURL(resource), null, MinecraftUtils.getProxy(), 2, null, executor, null, Shared::preConnect, Shared::stopIfHttpClientError)
                 .thenApply(Shared::readAndDelete);
     }
 
+    // URL 编码失败时回退原串
     private static String encodeURL(String url) {
         try {
             return new URI(url).toASCIIString();
@@ -76,22 +82,23 @@ public class Shared {
     }
 
     public static boolean isBlank(CharSequence cs) {
-        int strLen;
-        if (cs == null || (strLen = cs.length()) == 0)
+        if (cs == null || cs.isEmpty())
             return true;
-        for (int i = 0; i < strLen; i++)
+        for (int i = 0; i < cs.length(); i++)
             if (!Character.isWhitespace(cs.charAt(i)))
                 return false;
         return true;
     }
 
+    // UUID == OfflinePlayer:<name> 的 nameUUID 时视为离线档案
+    // 不完整档案也当作离线，但不写入缓存（后续可能被补全）
     public static boolean isOfflinePlayer(UUID id, String name) {
-        if (id == null || isBlank(name)) // treat incomplete profiles as offline profiles, but don't cache results for them as they can be updated later and possibly become online profiles.
+        if (id == null || isBlank(name))
             return true;
         try {
-            return offlines.get(id, () -> {
-                return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)).equals(id);
-            });
+            return offlines.get(id, () -> UUID
+                    .nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8))
+                    .equals(id));
         } catch (Throwable t) {
             return true;
         }
@@ -105,6 +112,7 @@ public class Shared {
         conn.setDoOutput(false);
     }
 
+    // 读取临时文件内容并删除文件
     private static Optional<byte[]> readAndDelete(Optional<Path> path) {
         try (FileChannel channel = FileChannel.open(path.orElseThrow(FileNotFoundException::new), StandardOpenOption.READ, StandardOpenOption.DELETE_ON_CLOSE); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             channel.transferTo(0L, Long.MAX_VALUE, Channels.newChannel(baos));
@@ -123,6 +131,7 @@ public class Shared {
         }
     }
 
+    // HTTP 4xx 时停止下载重试
     private static boolean stopIfHttpClientError(URLConnection conn) {
         if (conn instanceof HttpURLConnection)
             try {
@@ -135,8 +144,8 @@ public class Shared {
     }
 
     public static <T> ListenableFuture<T> submitTask(Callable<T> callable) {
-        ListenableFutureTask<T> future;
-        SharedPool.execute(future = ListenableFutureTask.create(callable));
+        ListenableFutureTask<T> future = ListenableFutureTask.create(callable);
+        SharedPool.execute(future);
         return future;
     }
 

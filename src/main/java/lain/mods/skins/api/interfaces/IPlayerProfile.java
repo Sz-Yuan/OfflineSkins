@@ -3,31 +3,19 @@ package lain.mods.skins.api.interfaces;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+// 玩家档案包装：可随正版解析/补全而更新
 public interface IPlayerProfile {
 
-    /**
-     * @return the actual profile object.
-     */
+    // 底层档案对象（通常为 GameProfile）
     Object getOriginal();
 
-    /**
-     * @return the uuid of the profile.
-     */
+    // 档案 UUID
     UUID getPlayerID();
 
-    /**
-     * @return the name of the profile.
-     */
+    // 档案用户名
     String getPlayerName();
 
-    /**
-     * Set a listener to be notified after this IPlayerProfile changes. (examples: from offline to online, from incomplete to complete) <br>
-     * Multiple listeners will be called one by one in order. <br>
-     * Be careful to not accumulate a large number of listeners as a profile will most likely exist a long time.
-     *
-     * @param listener the listener to set.
-     * @return true if successful, null and duplicates will fail.
-     */
+    // 档案更新监听；null 或重复注册返回 false，勿大量堆积监听
     boolean setUpdateListener(Consumer<IPlayerProfile> listener);
 
 }

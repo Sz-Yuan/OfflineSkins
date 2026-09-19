@@ -18,6 +18,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+// 简单异步下载：可选代理、重试、摘要与临时文件
 public final class SimpleDownloader {
 
     private SimpleDownloader() {
@@ -81,9 +82,10 @@ public final class SimpleDownloader {
         }
     }
 
+    // 将资源地址转为 URL；非法地址时回调并返回空
     private static Optional<URL> resource(String resource, Consumer<Throwable> onException) {
         try {
-            return Optional.of(new URL(resource));
+            return Optional.of(java.net.URI.create(resource).toURL());
         } catch (Throwable e) {
             if (onException != null)
                 onException.accept(e);
@@ -119,6 +121,7 @@ public final class SimpleDownloader {
         return start(resource, null, null, 2, null, SharedPool::execute, null, null, null);
     }
 
+    // 异步下载入口：连接 → 临时文件 → 写入；失败 complete 空 Optional
     public static CompletableFuture<Optional<Path>> start(String resource, Path tempDir, Proxy proxy, int maxRetries, MessageDigest digest, Executor executor, Consumer<Thread> preExecute, Consumer<URLConnection> preConnect, Predicate<URLConnection> shouldTransfer) {
         Objects.requireNonNull(resource);
         CompletableFuture<Optional<Path>> future = new CompletableFuture<>();

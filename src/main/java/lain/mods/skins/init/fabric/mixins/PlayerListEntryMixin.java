@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+// 有模组皮肤数据时覆盖 PlayerInfo#getSkin；null 则保持原版
 @Mixin(PlayerInfo.class)
 public class PlayerListEntryMixin {
 

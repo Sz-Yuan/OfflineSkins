@@ -1,16 +1,12 @@
 package lain.mods.skins.api.interfaces;
 
+// 皮肤服务：管理 Provider 列表并按档案聚合 ISkin
 public interface ISkinProviderService extends ISkinProvider {
 
-    /**
-     * Clears all registered providers.
-     */
+    // 清空已注册的 Provider
     void clearProviders();
 
-    /**
-     * @param provider the provider to register.
-     * @return true if successful.
-     */
+    // 注册 Provider；成功返回 true
     boolean registerProvider(ISkinProvider provider);
 
 }

@@ -10,159 +10,131 @@ import com.mojang.authlib.GameProfile;
 import lain.mods.skins.api.interfaces.IPlayerProfile;
 
 import java.lang.ref.WeakReference;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+// 包装 GameProfile；正版解析/属性补全完成后自动更新
 public class PlayerProfile implements IPlayerProfile {
 
     private static final PlayerProfile DUMMY = new PlayerProfile(Shared.DUMMY);
 
-    private static final LoadingCache<GameProfile, PlayerProfile> profiles = CacheBuilder.newBuilder().weakKeys().refreshAfterWrite(10, TimeUnit.MINUTES).build(new CacheLoader<GameProfile, PlayerProfile>() {
+    private static final LoadingCache<GameProfile, PlayerProfile> profiles = CacheBuilder.newBuilder()
+            .weakKeys()
+            .refreshAfterWrite(Duration.ofMinutes(10))
+            .build(new CacheLoader<>() {
+                @Override
+                public PlayerProfile load(GameProfile key) {
+                    if (key.properties() == null || key == Shared.DUMMY)
+                        return DUMMY;
 
-        @Override
-        public PlayerProfile load(GameProfile key) throws Exception {
-            if (key.properties() == null || key == Shared.DUMMY) // bad profile
-                return DUMMY;
+                    PlayerProfile profile = new PlayerProfile(key);
+                    if (Shared.isBlank(key.name())) {
+                        // 名字为空：仅按 UUID 补全 properties
+                        if (key.id() != null)
+                            Futures.addCallback(MojangService.fillProfile(key), new FutureCallback<>() {
+                                @Override
+                                public void onFailure(Throwable t) {
+                                }
 
-            PlayerProfile profile = new PlayerProfile(key);
-            if (Shared.isBlank(key.name())) // an incomplete profile that needs filling
-            {
-                if (key.id() != null) // requires an ID to fill it
-                {
-                    Futures.addCallback(MojangService.fillProfile(key), new FutureCallback<GameProfile>() // fill it
-                    {
-
-                        @Override
-                        public void onFailure(Throwable t) {
-                        }
-
-                        @Override
-                        public void onSuccess(GameProfile filled) {
-                            if (filled == key) // failed
-                                return;
-                            profile.set(filled);
-                        }
-
-                    }, Runnable::run);
-                }
-            } else if (Shared.isOfflinePlayer(key.id(), key.name())) // an offline profile that needs resolving
-            {
-                Futures.addCallback(MojangService.getProfile(key.name()), new FutureCallback<GameProfile>() // resolve it
-                {
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                    }
-
-                    @Override
-                    public void onSuccess(GameProfile resolved) {
-                        if (resolved == Shared.DUMMY) // failed
-                            return;
-                        profile.set(resolved);
-
-                        Futures.addCallback(MojangService.fillProfile(resolved), new FutureCallback<GameProfile>() // fill it
-                        {
-
-                            @Override
-                            public void onFailure(Throwable t) {
-                            }
-
-                            @Override
-                            public void onSuccess(GameProfile filled) {
-                                if (filled == resolved) // failed or already filled
-                                    return;
-                                profile.set(filled);
-                            }
-
-                        }, Runnable::run);
-                    }
-
-                }, Runnable::run);
-            } else if (key.properties().isEmpty()) // an assumed online profile that needs filling
-            {
-                Futures.addCallback(MojangService.fillProfile(key), new FutureCallback<GameProfile>() // fill it
-                {
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                    }
-
-                    @Override
-                    public void onSuccess(GameProfile filled) {
-                        if (filled != key) // success
-                        {
-                            profile.set(filled);
-                            return;
-                        }
-                        // failed, possible offline profile with bad ID
-                        Futures.addCallback(MojangService.getProfile(key.name()), new FutureCallback<GameProfile>() // resolve it
-                        {
-
+                                @Override
+                                public void onSuccess(GameProfile filled) {
+                                    if (filled != key)
+                                        profile.set(filled);
+                                }
+                            }, Runnable::run);
+                    } else if (Shared.isOfflinePlayer(key.id(), key.name())) {
+                        // 离线 UUID：先按名字解析正版，再补全 properties
+                        Futures.addCallback(MojangService.getProfile(key.name()), new FutureCallback<>() {
                             @Override
                             public void onFailure(Throwable t) {
                             }
 
                             @Override
                             public void onSuccess(GameProfile resolved) {
-                                if (resolved == Shared.DUMMY) // failed
+                                if (resolved == Shared.DUMMY)
                                     return;
                                 profile.set(resolved);
-
-                                Futures.addCallback(MojangService.fillProfile(resolved), new FutureCallback<GameProfile>() // fill it
-                                {
-
+                                Futures.addCallback(MojangService.fillProfile(resolved), new FutureCallback<>() {
                                     @Override
                                     public void onFailure(Throwable t) {
                                     }
 
                                     @Override
                                     public void onSuccess(GameProfile filled) {
-                                        if (filled == resolved) // failed or already filled
-                                            return;
-                                        profile.set(filled);
+                                        if (filled != resolved)
+                                            profile.set(filled);
                                     }
-
                                 }, Runnable::run);
                             }
+                        }, Runnable::run);
+                    } else if (key.properties().isEmpty()) {
+                        // 疑似在线但未补全：先 fill，失败再按名字解析
+                        Futures.addCallback(MojangService.fillProfile(key), new FutureCallback<>() {
+                            @Override
+                            public void onFailure(Throwable t) {
+                            }
 
+                            @Override
+                            public void onSuccess(GameProfile filled) {
+                                if (filled != key) {
+                                    profile.set(filled);
+                                    return;
+                                }
+                                Futures.addCallback(MojangService.getProfile(key.name()), new FutureCallback<>() {
+                                    @Override
+                                    public void onFailure(Throwable t) {
+                                    }
+
+                                    @Override
+                                    public void onSuccess(GameProfile resolved) {
+                                        if (resolved == Shared.DUMMY)
+                                            return;
+                                        profile.set(resolved);
+                                        Futures.addCallback(MojangService.fillProfile(resolved), new FutureCallback<>() {
+                                            @Override
+                                            public void onFailure(Throwable t) {
+                                            }
+
+                                            @Override
+                                            public void onSuccess(GameProfile filled2) {
+                                                if (filled2 != resolved)
+                                                    profile.set(filled2);
+                                            }
+                                        }, Runnable::run);
+                                    }
+                                }, Runnable::run);
+                            }
                         }, Runnable::run);
                     }
 
-                }, Runnable::run);
-            }
+                    return profile;
+                }
 
-            return profile;
-        }
-
-        @Override
-        public ListenableFuture<PlayerProfile> reload(GameProfile key, PlayerProfile oldValue) throws Exception {
-            if (oldValue == DUMMY) // value for bad profile
-                return Futures.immediateFuture(DUMMY);
-            return Shared.submitTask(() -> {
-                PlayerProfile newValue = load(key);
-                if (oldValue.getOriginal() != newValue.getOriginal()) // updated
-                    oldValue.set(newValue.getOriginal()); // update old profile
-                return newValue;
+                @Override
+                public ListenableFuture<PlayerProfile> reload(GameProfile key, PlayerProfile oldValue) {
+                    if (oldValue == DUMMY)
+                        return Futures.immediateFuture(DUMMY);
+                    return Shared.submitTask(() -> {
+                        PlayerProfile newValue = load(key);
+                        if (oldValue.getOriginal() != newValue.getOriginal())
+                            oldValue.set(newValue.getOriginal());
+                        return newValue;
+                    });
+                }
             });
-        }
 
-    });
-    private final Collection<Consumer<IPlayerProfile>> _listeners = new CopyOnWriteArrayList<>();
-    private WeakReference<GameProfile> _profile;
+    private final Collection<Consumer<IPlayerProfile>> listeners = new CopyOnWriteArrayList<>();
+    private WeakReference<GameProfile> profileRef;
 
     private PlayerProfile(GameProfile profile) {
         if (profile == null)
             throw new IllegalArgumentException("profile must not be null");
-        _profile = new WeakReference<GameProfile>(profile);
+        profileRef = new WeakReference<>(profile);
     }
 
-    /**
-     * @param profile the profile to wrap.
-     * @return a PlayerProfile with a GameProfile wrapped in it, this profile will receive updates later if applicable.
-     */
     public static PlayerProfile wrapGameProfile(GameProfile profile) {
         if (profile == null)
             return DUMMY;
@@ -171,64 +143,50 @@ public class PlayerProfile implements IPlayerProfile {
 
     @Override
     public boolean equals(Object o) {
-        GameProfile p;
-        if ((p = _profile.get()) == null) // gc
+        GameProfile p = profileRef.get();
+        if (p == null)
             return false;
-        if (o instanceof PlayerProfile)
-            return p.equals(((PlayerProfile) o)._profile.get());
-        return false;
+        return o instanceof PlayerProfile other && p.equals(other.profileRef.get());
     }
 
     @Override
     public GameProfile getOriginal() {
-        GameProfile p;
-        if ((p = _profile.get()) == null) // gc
-            return Shared.DUMMY;
-        return p;
+        GameProfile p = profileRef.get();
+        return p == null ? Shared.DUMMY : p;
     }
 
     @Override
     public UUID getPlayerID() {
-        GameProfile p;
-        if ((p = _profile.get()) == null) // gc
-            return Shared.DUMMY.id();
-        return p.id();
+        return getOriginal().id();
     }
 
     @Override
     public String getPlayerName() {
-        GameProfile p;
-        if ((p = _profile.get()) == null) // gc
-            return Shared.DUMMY.name();
-        return p.name();
+        return getOriginal().name();
     }
 
     @Override
     public int hashCode() {
-        GameProfile p;
-        if ((p = _profile.get()) == null) // gc
-            return 0;
-        return p.hashCode();
+        GameProfile p = profileRef.get();
+        return p == null ? 0 : p.hashCode();
     }
 
+    // 更新底层档案并通知监听器
     private synchronized void set(GameProfile profile) {
         if (this == DUMMY)
             return;
         if (profile == null)
             throw new IllegalArgumentException("profile must not be null");
-        _profile = new WeakReference<GameProfile>(profile);
-
-        for (Consumer<IPlayerProfile> l : _listeners)
-            l.accept(this);
+        profileRef = new WeakReference<>(profile);
+        for (Consumer<IPlayerProfile> listener : listeners)
+            listener.accept(this);
     }
 
     @Override
     public boolean setUpdateListener(Consumer<IPlayerProfile> listener) {
-        if (this == DUMMY)
+        if (this == DUMMY || listener == null || listeners.contains(listener))
             return false;
-        if (listener == null || _listeners.contains(listener))
-            return false;
-        return _listeners.add(listener);
+        return listeners.add(listener);
     }
 
 }

@@ -7,6 +7,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+// 重试与 fallback 工具：主动作失败后尝试备用动作
 public final class Retries {
 
     private Retries() {

@@ -18,143 +18,119 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
+// 正版：用户名 → UUID 查询，以及 session 属性补全
 public class MojangService {
 
-    /** Mojang profile ids are undashed hex; UUID.fromString needs dashes. */
+    // Mojang 返回无横线 UUID 十六进制
     private static UUID parseUuid(String id) {
         String s = id.replace("-", "");
         if (s.length() != 32)
             return UUID.fromString(id);
-        return new UUID(
-                Long.parseUnsignedLong(s.substring(0, 16), 16),
-                Long.parseUnsignedLong(s.substring(16, 32), 16));
+        return new UUID(Long.parseUnsignedLong(s.substring(0, 16), 16), Long.parseUnsignedLong(s.substring(16, 32), 16));
     }
 
-    private static final LoadingCache<GameProfile, Optional<GameProfile>> filledProfiles = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.HOURS).refreshAfterWrite(30, TimeUnit.MINUTES).build(new CacheLoader<GameProfile, Optional<GameProfile>>() {
+    // 按 UUID 补全 profile 的 textures 等 properties
+    private static final LoadingCache<GameProfile, Optional<GameProfile>> filledProfiles = CacheBuilder.newBuilder()
+            .expireAfterAccess(Duration.ofHours(3))
+            .refreshAfterWrite(Duration.ofMinutes(30))
+            .build(new CacheLoader<>() {
+                @Override
+                public Optional<GameProfile> load(GameProfile key) {
+                    if (key.id() == null || key.properties() == null || key == Shared.DUMMY)
+                        return Optional.empty();
+                    if (!key.properties().isEmpty())
+                        return Optional.of(key);
+                    GameProfile filled = Shared.call(() -> MinecraftUtils.getSessionService().fetchProfile(key.id(), false).profile(), key, null);
+                    if (filled == key || filled == null || filled.properties() == null || filled.properties().isEmpty())
+                        return Optional.empty();
+                    return Optional.of(filled);
+                }
 
-        @Override
-        public Optional<GameProfile> load(GameProfile key) throws Exception {
-            if (key.id() == null || key.properties() == null || key == Shared.DUMMY) // bad profile
-                return Optional.empty();
-            if (!key.properties().isEmpty()) // already filled
-                return Optional.of(key);
-            GameProfile filled = Shared.call(() -> {
-                return MinecraftUtils.getSessionService().fetchProfile(key.id(), false).profile(); // fetch it
-            }, key, null);
-            if (filled == key) // failed
-                return Optional.empty();
-            if (filled.properties().isEmpty()) // partially filled, this won't happen in current implementation, it's here just in case.
-                return Optional.empty();
-            return Optional.of(filled); // cache it
-        }
-
-        @Override
-        public ListenableFuture<Optional<GameProfile>> reload(GameProfile key, Optional<GameProfile> oldValue) throws Exception {
-            if (oldValue.isPresent()) // good result, doesn't need refresh.
-                return Futures.immediateFuture(oldValue);
-            return Shared.submitTask(() -> {
-                return load(key);
+                @Override
+                public ListenableFuture<Optional<GameProfile>> reload(GameProfile key, Optional<GameProfile> oldValue) {
+                    if (oldValue.isPresent())
+                        return Futures.immediateFuture(oldValue);
+                    return Shared.submitTask(() -> load(key));
+                }
             });
-        }
 
-    });
+    // 按用户名解析正版 UUID
+    private static final LoadingCache<String, Optional<GameProfile>> resolvedProfiles = CacheBuilder.newBuilder()
+            .expireAfterAccess(Duration.ofHours(3))
+            .refreshAfterWrite(Duration.ofMinutes(30))
+            .build(new CacheLoader<>() {
+                @Override
+                public Optional<GameProfile> load(String key) {
+                    if (Shared.isBlank(key))
+                        return Optional.of(Shared.DUMMY);
+                    return Optional.ofNullable(Shared.call(() -> makeRequest(String.format("https://api.mojang.com/users/profiles/minecraft/%s", key)), null, null));
+                }
 
-    private static final LoadingCache<String, Optional<GameProfile>> resolvedProfiles = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.HOURS).refreshAfterWrite(30, TimeUnit.MINUTES).build(new CacheLoader<String, Optional<GameProfile>>() {
+                @Override
+                public ListenableFuture<Optional<GameProfile>> reload(String key, Optional<GameProfile> oldValue) {
+                    if (oldValue.isPresent()) {
+                        if (oldValue.get() == Shared.DUMMY)
+                            return Futures.immediateFuture(Optional.empty());
+                        return Futures.immediateFuture(oldValue);
+                    }
+                    return Shared.submitTask(() -> load(key));
+                }
+            });
 
-        @Override
-        public Optional<GameProfile> load(String key) throws Exception {
-            if (Shared.isBlank(key)) // can't resolve this
-                return Optional.of(Shared.DUMMY);
-            return Optional.ofNullable(Shared.call(() -> {
-                return makeRequest(String.format("https://api.mojang.com/users/profiles/minecraft/%s", key)); // request it
-            }, null, null));
-        }
+    private static GameProfile makeRequest(String request) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) URI.create(request).toURL().openConnection(MinecraftUtils.getProxy());
+        conn.setConnectTimeout(30000);
+        conn.setReadTimeout(10000);
+        conn.setUseCaches(false);
+        conn.connect();
 
-        private GameProfile makeRequest(String request) throws IOException {
-            HttpURLConnection conn = (HttpURLConnection) URI.create(request).toURL().openConnection(MinecraftUtils.getProxy());
-            conn.setConnectTimeout(30000);
-            conn.setReadTimeout(10000);
-            conn.setUseCaches(false);
-            conn.connect();
-
-            int code = conn.getResponseCode();
-            if (code == 204 || code == 404) // not found
-                return Shared.DUMMY;
-            else if (code / 100 == 2) {
-                try (InputStream in = conn.getInputStream()) {
-                    StringBuilder buf = new StringBuilder();
-                    readLines(in, buf);
-                    // Authlib GameProfile is a record; do not Gson-reflect it (JSON has no properties).
-                    JsonObject obj = JsonParser.parseString(buf.toString()).getAsJsonObject();
-                    if (!obj.has("id") || !obj.has("name"))
-                        return Shared.DUMMY;
-                    UUID id = parseUuid(obj.get("id").getAsString());
-                    String name = obj.get("name").getAsString();
-                    if (Shared.isOfflinePlayer(id, name)) // why does the server return an offline profile? treat it as not found.
-                        return Shared.DUMMY;
-                    return new GameProfile(id, name, PropertyMap.EMPTY);
+        int code = conn.getResponseCode();
+        if (code == 204 || code == 404)
+            return Shared.DUMMY;
+        if (code / 100 != 2)
+            return null;
+        try (InputStream in = conn.getInputStream()) {
+            StringBuilder buf = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (buf.length() > 0)
+                        buf.append(System.lineSeparator());
+                    buf.append(line);
                 }
             }
-            return null;
+            // authlib 的 GameProfile 是 record，禁止 Gson 反射构造（JSON 常无 properties）
+            JsonObject obj = JsonParser.parseString(buf.toString()).getAsJsonObject();
+            if (!obj.has("id") || !obj.has("name"))
+                return Shared.DUMMY;
+            UUID id = parseUuid(obj.get("id").getAsString());
+            String name = obj.get("name").getAsString();
+            if (Shared.isOfflinePlayer(id, name))
+                return Shared.DUMMY;
+            return new GameProfile(id, name, PropertyMap.EMPTY);
         }
+    }
 
-        private void readLines(InputStream in, StringBuilder buf) throws IOException {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            String line;
-            String newLine = System.getProperty("line.separator");
-            while ((line = reader.readLine()) != null) {
-                if (buf.length() > 0)
-                    buf.append(newLine);
-                buf.append(line);
-            }
-        }
-
-        @Override
-        public ListenableFuture<Optional<GameProfile>> reload(String key, Optional<GameProfile> oldValue) throws Exception {
-            if (oldValue.isPresent()) {
-                if (oldValue.get() == Shared.DUMMY)
-                    return Futures.immediateFuture(Optional.empty()); // effectively schedule a refresh in next reload.
-                return Futures.immediateFuture(oldValue); // good result, doesn't need refresh.
-            }
-            return Shared.submitTask(() -> {
-                return load(key);
-            });
-        }
-
-    });
-
-    /**
-     * @param profile the profile to fill, requires an ID to actually fill.
-     * @return a ListenableFuture of a filled profile, otherwise previous profile.
-     */
     public static ListenableFuture<GameProfile> fillProfile(GameProfile profile) {
         if (profile == null)
             return Futures.immediateFailedFuture(new NullPointerException("profile must not be null"));
-        Optional<GameProfile> cachedResult;
-        if ((cachedResult = filledProfiles.getIfPresent(profile)) != null)
-            return Futures.immediateFuture(cachedResult.orElse(profile));
-        return Shared.submitTask(() -> {
-            return filledProfiles.getUnchecked(profile).orElse(profile);
-        });
+        Optional<GameProfile> cached = filledProfiles.getIfPresent(profile);
+        if (cached != null)
+            return Futures.immediateFuture(cached.orElse(profile));
+        return Shared.submitTask(() -> filledProfiles.getUnchecked(profile).orElse(profile));
     }
 
-    /**
-     * @param username the username to query about, requires non-blank to actually resolve.
-     * @return a ListenableFuture of a resolved profile, otherwise {@link Shared#DUMMY DUMMY}.
-     */
     public static ListenableFuture<GameProfile> getProfile(String username) {
         if (username == null)
             return Futures.immediateFailedFuture(new NullPointerException("username must not be null"));
-        Optional<GameProfile> cachedResult;
-        if ((cachedResult = resolvedProfiles.getIfPresent(username)) != null)
-            return Futures.immediateFuture(cachedResult.orElse(Shared.DUMMY));
-        return Shared.submitTask(() -> {
-            return resolvedProfiles.getUnchecked(username).orElse(Shared.DUMMY);
-        });
+        Optional<GameProfile> cached = resolvedProfiles.getIfPresent(username);
+        if (cached != null)
+            return Futures.immediateFuture(cached.orElse(Shared.DUMMY));
+        return Shared.submitTask(() -> resolvedProfiles.getUnchecked(username).orElse(Shared.DUMMY));
     }
 
 }
