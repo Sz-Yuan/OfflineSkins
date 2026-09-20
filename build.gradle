@@ -51,7 +51,8 @@ jar {
 // Signing is optional; remapJar may be registered after evaluation (Loom 1.17+).
 tasks.matching { it.name == 'remapJar' }.configureEach {
     doLast {
-        if (System.getenv('SIGNJAR_KEYSTORE') != null) {
+        // 空字符串也要跳过：CI 未配置 secret 时注入的是 ""
+        if (System.getenv('SIGNJAR_KEYSTORE')) {
             def keystore = File.createTempFile('keystore-', '.jks', getTemporaryDir()).toString()
 
             file(keystore).withOutputStream { output ->
