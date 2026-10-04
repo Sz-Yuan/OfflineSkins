@@ -1,8 +1,13 @@
 package kitejs.data;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import kitejs.OfflineSkins;
 
 public class SkinData {
 	public static final String TYPE_DEFAULT = "default";
@@ -10,31 +15,103 @@ public class SkinData {
 	public static final String TYPE_CAPE = "cape";
 	public static final String TYPE_UNKNOWN = "unknown";
 
-	public synchronized void put(byte[] bytes, String type) {
-		throw new UnsupportedOperationException("第 2 步实现");
+	private final List<Function<ByteBuffer, ByteBuffer>> filters = new CopyOnWriteArrayList<>();
+	private final List<Consumer<SkinData>> listeners = new CopyOnWriteArrayList<>();
+
+	private ByteBuffer data;
+	private String type;
+
+	public void put(byte[] bytes, String type) {
+		if (bytes == null) {
+			return;
+		}
+
+		ByteBuffer buffer = toDirectBuffer(bytes);
+
+		for (Function<ByteBuffer, ByteBuffer> filter : filters) {
+			buffer = filter.apply(buffer);
+
+			if (buffer == null) {
+				return;
+			}
+		}
+
+		synchronized (this) {
+			this.data = buffer;
+			this.type = type;
+		}
 	}
 
 	public synchronized boolean isDataReady() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		return data != null;
 	}
 
 	public synchronized ByteBuffer getData() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		return data;
 	}
 
 	public synchronized String getType() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		return type;
 	}
 
 	public void addFilter(Function<ByteBuffer, ByteBuffer> filter) {
-		throw new UnsupportedOperationException("第 2 步实现");
+		if (filter == null || containsIdentity(filters, filter)) {
+			return;
+		}
+
+		filters.add(filter);
 	}
 
 	public void addListener(Consumer<SkinData> listener) {
-		throw new UnsupportedOperationException("第 2 步实现");
+		if (listener == null || containsIdentity(listeners, listener)) {
+			return;
+		}
+
+		listeners.add(listener);
 	}
 
 	public void onRemoval() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		notifyListeners();
+
+		synchronized (this) {
+			data = null;
+			type = null;
+		}
+	}
+
+	protected final void notifyListeners() {
+		for (Consumer<SkinData> listener : listeners) {
+			try {
+				listener.accept(this);
+			} catch (RuntimeException e) {
+				OfflineSkins.LOGGER.warn("皮肤数据移除监听器抛出异常", e);
+			}
+		}
+	}
+
+	protected final List<Function<ByteBuffer, ByteBuffer>> filters() {
+		return filters;
+	}
+
+	protected final List<Consumer<SkinData>> listeners() {
+		return listeners;
+	}
+
+	private static ByteBuffer toDirectBuffer(byte[] bytes) {
+		ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length);
+		buffer.put(bytes);
+		buffer.flip();
+		buffer.order(ByteOrder.nativeOrder());
+		return buffer;
+	}
+
+	private static <T> boolean containsIdentity(List<T> list, T value) {
+		for (T element : list) {
+			if (element == value) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }

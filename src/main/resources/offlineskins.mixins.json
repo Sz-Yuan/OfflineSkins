@@ -3,6 +3,9 @@
 	"package": "kitejs.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [],
+	"client": [
+		"PlayerInfoMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	},

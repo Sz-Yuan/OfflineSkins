@@ -1,42 +1,120 @@
 package kitejs.data;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import kitejs.OfflineSkins;
+
 public class AggregateSkinData extends SkinData {
-	public void set(Collection<SkinData> members) {
-		throw new UnsupportedOperationException("第 2 步实现");
+	private final AtomicReference<List<SkinData>> members = new AtomicReference<>(List.of());
+
+	@Override
+	public void put(byte[] bytes, String type) {
+		throw new UnsupportedOperationException("聚合容器不接受直接写入");
+	}
+
+	public void set(Collection<SkinData> newMembers) {
+		List<SkinData> next = new ArrayList<>();
+
+		if (newMembers != null) {
+			for (SkinData member : newMembers) {
+				if (member == null || member == this) {
+					continue;
+				}
+
+				next.add(member);
+			}
+		}
+
+		for (SkinData member : next) {
+			for (Function<ByteBuffer, ByteBuffer> filter : filters()) {
+				member.addFilter(filter);
+			}
+
+			for (Consumer<SkinData> listener : listeners()) {
+				member.addListener(listener);
+			}
+		}
+
+		List<SkinData> previous = members.getAndSet(List.copyOf(next));
+
+		for (SkinData member : previous) {
+			try {
+				member.onRemoval();
+			} catch (RuntimeException e) {
+				OfflineSkins.LOGGER.warn("聚合容器替换成员时成员移除失败", e);
+			}
+		}
 	}
 
 	@Override
 	public boolean isDataReady() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		return firstReady() != null;
 	}
 
 	@Override
 	public ByteBuffer getData() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		SkinData member = firstReady();
+		return member == null ? null : member.getData();
 	}
 
 	@Override
 	public String getType() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		SkinData member = firstReady();
+		return member == null ? null : member.getType();
 	}
 
 	@Override
 	public void addFilter(Function<ByteBuffer, ByteBuffer> filter) {
-		throw new UnsupportedOperationException("第 2 步实现");
+		if (filter == null) {
+			return;
+		}
+
+		super.addFilter(filter);
+
+		for (SkinData member : members.get()) {
+			member.addFilter(filter);
+		}
 	}
 
 	@Override
 	public void addListener(Consumer<SkinData> listener) {
-		throw new UnsupportedOperationException("第 2 步实现");
+		if (listener == null) {
+			return;
+		}
+
+		super.addListener(listener);
+
+		for (SkinData member : members.get()) {
+			member.addListener(listener);
+		}
 	}
 
 	@Override
 	public void onRemoval() {
-		throw new UnsupportedOperationException("第 2 步实现");
+		List<SkinData> previous = members.getAndSet(List.of());
+
+		for (SkinData member : previous) {
+			try {
+				member.onRemoval();
+			} catch (RuntimeException e) {
+				OfflineSkins.LOGGER.warn("聚合容器移除成员失败", e);
+			}
+		}
+	}
+
+	private SkinData firstReady() {
+		for (SkinData member : members.get()) {
+			if (member.isDataReady()) {
+				return member;
+			}
+		}
+
+		return null;
 	}
 }
