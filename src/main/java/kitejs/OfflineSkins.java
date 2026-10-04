@@ -6,6 +6,7 @@ import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -23,6 +24,7 @@ import kitejs.skin.SkinService;
 import kitejs.skin.provider.LocalSkinProvider;
 import kitejs.skin.provider.MojangSkinProvider;
 import kitejs.texture.DynamicSkinTextures;
+import kitejs.util.BackgroundTasks;
 import kitejs.util.MixinChecks;
 
 public class OfflineSkins implements ClientModInitializer {
@@ -54,6 +56,7 @@ public class OfflineSkins implements ClientModInitializer {
 
 	public static void reload(OfflineSkinsConfig loaded) {
 		config = loaded;
+		BackgroundTasks.configure(config.getWorkerThreads());
 		body.clearProviders();
 		cape.clearProviders();
 
@@ -77,20 +80,28 @@ public class OfflineSkins implements ClientModInitializer {
 	public static List<Component> statusLines() {
 		List<Component> lines = new ArrayList<>();
 
-		lines.add(Component.translatable("offlineskins.status.header"));
-		lines.add(Component.translatable("offlineskins.status.config", config.isMojangSourceEnabled(), config.isSkullOverrideDisabled()));
-		lines.add(Component.translatable("offlineskins.status.skinService", body.size(), body.readyCount(), body.retryCount()));
-		lines.add(Component.translatable("offlineskins.status.capeService", cape.size(), cape.readyCount(), cape.retryCount()));
-		lines.add(Component.translatable("offlineskins.status.renderCache", SkinRenderCache.size()));
-		lines.add(Component.translatable("offlineskins.status.textures", DynamicSkinTextures.size()));
+		lines.add(Component.translatable("offlineskins.status.header").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+		lines.add(Component.translatable("offlineskins.status.config", config.isMojangSourceEnabled(), config.isSkullOverrideDisabled()).withStyle(ChatFormatting.GRAY));
+		lines.add(Component.translatable("offlineskins.status.workers", BackgroundTasks.threads()).withStyle(ChatFormatting.GRAY));
+		lines.add(serviceLine("offlineskins.status.skinService", body));
+		lines.add(serviceLine("offlineskins.status.capeService", cape));
+		lines.add(Component.translatable("offlineskins.status.renderCache", SkinRenderCache.size()).withStyle(ChatFormatting.GRAY));
+		lines.add(Component.translatable("offlineskins.status.textures", DynamicSkinTextures.size()).withStyle(ChatFormatting.GRAY));
 
 		for (MixinChecks.Result result : MixinChecks.audit()) {
 			lines.add(Component.translatable("offlineskins.status.hook", Component.translatable(result.descriptionKey()), Component.translatable(
 				result.applied() ? "offlineskins.status.hook.applied" : "offlineskins.status.hook.missing"
-			)));
+			)).withStyle(result.applied() ? ChatFormatting.GREEN : ChatFormatting.RED));
 		}
 
 		return lines;
+	}
+
+	private static Component serviceLine(String key, SkinService service) {
+		int retrying = service.retryCount();
+
+		return Component.translatable(key, service.size(), service.readyCount(), service.unavailableCount(), retrying)
+			.withStyle(retrying > 0 ? ChatFormatting.YELLOW : ChatFormatting.GREEN);
 	}
 
 	public static void clearCaches() {

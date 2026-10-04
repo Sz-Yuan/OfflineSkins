@@ -20,6 +20,7 @@ public class SkinData {
 
 	private ByteBuffer data;
 	private String type;
+	private volatile boolean unavailable;
 
 	public void put(byte[] bytes, String type) {
 		if (bytes == null) {
@@ -44,6 +45,14 @@ public class SkinData {
 
 	public synchronized boolean isDataReady() {
 		return data != null;
+	}
+
+	public synchronized void markUnavailable() {
+		unavailable = true;
+	}
+
+	public synchronized boolean isUnavailable() {
+		return data == null && unavailable;
 	}
 
 	public synchronized ByteBuffer getData() {

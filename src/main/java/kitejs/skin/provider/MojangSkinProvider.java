@@ -2,6 +2,7 @@ package kitejs.skin.provider;
 
 import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.Map;
@@ -9,6 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -35,6 +38,10 @@ public class MojangSkinProvider implements SkinProvider {
 	private static final long ACCESS_TTL = 3L * 60L * 60L * 1000L;
 	private static final long REFRESH_INTERVAL = 30L * 60L * 1000L;
 	private static final Map<String, Resolution> RESOLUTIONS = new ConcurrentHashMap<>();
+	private static final Cache<UUID, ProfileTextures> TEXTURES = CacheBuilder.newBuilder()
+		.expireAfterWrite(Duration.ofMinutes(5L))
+		.maximumSize(512L)
+		.build();
 
 	private final SkinKind kind;
 
@@ -44,6 +51,7 @@ public class MojangSkinProvider implements SkinProvider {
 
 	public static void clearCache() {
 		RESOLUTIONS.clear();
+		TEXTURES.invalidateAll();
 	}
 
 	@Override
@@ -60,18 +68,34 @@ public class MojangSkinProvider implements SkinProvider {
 			String name = profile.getName();
 
 			if (name == null || name.isBlank()) {
+				data.markUnavailable();
+
 				return;
 			}
 
 			GameProfile premium = OfflineUuids.isOffline(profile) ? resolve(name) : new GameProfile(profile.getUuid(), name);
 
-			if (premium == null || premium == NOT_PREMIUM) {
+			if (premium == null) {
 				return;
 			}
 
-			Texture texture = findTexture(premium);
+			if (premium == NOT_PREMIUM) {
+				data.markUnavailable();
+
+				return;
+			}
+
+			ProfileTextures textures = textures(premium);
+
+			if (textures == null) {
+				return;
+			}
+
+			Texture texture = kind == SkinKind.CAPE ? textures.cape() : textures.skin();
 
 			if (texture == null) {
+				data.markUnavailable();
+
 				return;
 			}
 
@@ -163,8 +187,12 @@ public class MojangSkinProvider implements SkinProvider {
 		}
 	}
 
-	private Texture findTexture(GameProfile premium) {
-		Optional<HttpQueries.QueryResult> result = HttpQueries.query(PROFILE_URL + UndashedUuid.toString(premium.id()));
+	private static ProfileTextures textures(GameProfile premium) {
+		return TEXTURES.asMap().computeIfAbsent(premium.id(), MojangSkinProvider::queryTextures);
+	}
+
+	private static ProfileTextures queryTextures(UUID id) {
+		Optional<HttpQueries.QueryResult> result = HttpQueries.query(PROFILE_URL + UndashedUuid.toString(id));
 
 		if (result.isEmpty()) {
 			return null;
@@ -192,7 +220,9 @@ public class MojangSkinProvider implements SkinProvider {
 					return null;
 				}
 
-				return read(decoded.getAsJsonObject("textures"));
+				JsonObject textures = decoded.getAsJsonObject("textures");
+
+				return new ProfileTextures(read(textures, SkinKind.SKIN), read(textures, SkinKind.CAPE));
 			}
 		} catch (Exception ignored) {
 			return null;
@@ -201,7 +231,7 @@ public class MojangSkinProvider implements SkinProvider {
 		return null;
 	}
 
-	private Texture read(JsonObject textures) {
+	private static Texture read(JsonObject textures, SkinKind kind) {
 		String key = kind == SkinKind.CAPE ? "CAPE" : "SKIN";
 
 		if (!textures.has(key)) {
@@ -249,6 +279,9 @@ public class MojangSkinProvider implements SkinProvider {
 	}
 
 	private record Texture(String url, String type) {
+	}
+
+	private record ProfileTextures(Texture skin, Texture cape) {
 	}
 
 	private static final class Resolution {

@@ -95,8 +95,28 @@ public class SkinService {
 		return ready;
 	}
 
+	public int unavailableCount() {
+		int count = 0;
+
+		for (AggregateSkinData data : cache.asMap().values()) {
+			if (data.isUnavailable()) {
+				count++;
+			}
+		}
+
+		return count;
+	}
+
 	public int retryCount() {
-		return retries.size();
+		int count = 0;
+
+		for (AggregateSkinData data : cache.asMap().values()) {
+			if (!data.isDataReady() && !data.isUnavailable()) {
+				count++;
+			}
+		}
+
+		return count;
 	}
 
 	private void retry(PlayerProfile profile, AggregateSkinData aggregate) {

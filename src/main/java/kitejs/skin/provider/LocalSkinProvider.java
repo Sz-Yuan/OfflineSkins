@@ -51,9 +51,12 @@ public class LocalSkinProvider implements SkinProvider {
 
 				if (SkinData.TYPE_UNKNOWN.equals(type)) {
 					OfflineSkins.LOGGER.warn("Unsupported skin size, ignored (vanilla only accepts 64x32 and 64x64)");
+					data.markUnavailable();
 				} else {
 					data.put(bytes, type);
 				}
+			} else {
+				data.markUnavailable();
 			}
 		} catch (Exception e) {
 			OfflineSkins.LOGGER.debug("Failed to read local skin file", e);

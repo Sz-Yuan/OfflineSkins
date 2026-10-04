@@ -70,6 +70,23 @@ public class AggregateSkinData extends SkinData {
 	}
 
 	@Override
+	public boolean isUnavailable() {
+		List<SkinData> current = members.get();
+
+		if (current.isEmpty()) {
+			return false;
+		}
+
+		for (SkinData member : current) {
+			if (!member.isUnavailable()) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	@Override
 	public void addFilter(Function<ByteBuffer, ByteBuffer> filter) {
 		if (filter == null) {
 			return;
