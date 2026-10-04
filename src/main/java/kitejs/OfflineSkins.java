@@ -1,11 +1,17 @@
 package kitejs;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kitejs.config.OfflineSkinsConfig;
+import kitejs.profile.PlayerProfile;
 import kitejs.render.SkinRenderCache;
 import kitejs.skin.SkinKind;
 import kitejs.skin.SkinService;
@@ -19,10 +25,12 @@ public class OfflineSkins implements ClientModInitializer {
 
 	private static SkinService body;
 	private static SkinService cape;
-	private static boolean skullOverride = true;
+	private static boolean skullOverrideDisabled;
 
 	@Override
 	public void onInitializeClient() {
+		ClientTickEvents.END_CLIENT_TICK.register(OfflineSkins::onEndTick);
+
 		body = new SkinService();
 		cape = new SkinService();
 
@@ -35,7 +43,7 @@ public class OfflineSkins implements ClientModInitializer {
 		body.clearProviders();
 		cape.clearProviders();
 
-		skullOverride = config.isSkullOverrideEnabled();
+		skullOverrideDisabled = !config.isSkullOverrideEnabled();
 
 		if (config.isMojangSourceEnabled()) {
 			body.addProvider(new MojangSkinProvider(SkinKind.SKIN));
@@ -48,7 +56,25 @@ public class OfflineSkins implements ClientModInitializer {
 		SkinRenderCache.init(body, cape);
 	}
 
-	public static boolean isSkullOverrideEnabled() {
-		return skullOverride;
+	public static boolean isSkullOverrideDisabled() {
+		return skullOverrideDisabled;
+	}
+
+	private static void onEndTick(Minecraft client) {
+		if (client.level == null) {
+			return;
+		}
+
+		ClientPacketListener connection = client.getConnection();
+
+		if (connection == null) {
+			return;
+		}
+
+		for (PlayerInfo info : connection.getOnlinePlayers()) {
+			PlayerProfile profile = PlayerProfile.of(info.getProfile());
+			body.getSkin(profile);
+			cape.getSkin(profile);
+		}
 	}
 }

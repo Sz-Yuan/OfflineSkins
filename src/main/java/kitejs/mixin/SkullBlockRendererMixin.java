@@ -20,7 +20,7 @@ import kitejs.render.SkinRenderCache;
 public abstract class SkullBlockRendererMixin {
 	@Inject(method = "resolveSkullRenderType", at = @At("RETURN"), cancellable = true, require = 0)
 	private void offlineskins$resolveSkullRenderType(SkullBlock.Type type, SkullBlockEntity entity, CallbackInfoReturnable<RenderType> callback) {
-		if (!OfflineSkins.isSkullOverrideEnabled() || type != SkullBlock.Types.PLAYER) {
+		if (OfflineSkins.isSkullOverrideDisabled() || type != SkullBlock.Types.PLAYER) {
 			return;
 		}
 
