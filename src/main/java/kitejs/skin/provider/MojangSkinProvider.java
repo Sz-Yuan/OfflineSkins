@@ -79,11 +79,9 @@ public class MojangSkinProvider implements SkinProvider {
 
 			Optional<byte[]> bytes = Downloader.download(texture.url());
 
-			if (bytes.isEmpty() || !ImageTools.isValidPng(bytes.get())) {
-				return;
+			if (bytes.isPresent() && ImageTools.isValidPng(bytes.get())) {
+				data.put(bytes.get(), texture.type());
 			}
-
-			data.put(bytes.get(), texture.type());
 		} catch (Exception e) {
 			OfflineSkins.LOGGER.warn("官方源获取皮肤失败", e);
 		}

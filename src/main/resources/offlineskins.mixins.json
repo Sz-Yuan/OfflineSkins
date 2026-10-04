@@ -5,6 +5,7 @@
 	"mixins": [],
 	"client": [
 		"PlayerInfoMixin",
+		"PlayerSkinRenderCacheMixin",
 		"PlayerTabOverlayMixin",
 		"SkullBlockRendererMixin"
 	],

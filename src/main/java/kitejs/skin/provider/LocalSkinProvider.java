@@ -51,11 +51,9 @@ public class LocalSkinProvider implements SkinProvider {
 		try {
 			byte[] bytes = read(profile);
 
-			if (bytes == null || !ImageTools.isValidPng(bytes)) {
-				return;
+			if (bytes != null && ImageTools.isValidPng(bytes)) {
+				data.put(bytes, kind == SkinKind.CAPE ? SkinData.TYPE_CAPE : ImageTools.detectSkinType(bytes));
 			}
-
-			data.put(bytes, kind == SkinKind.CAPE ? SkinData.TYPE_CAPE : ImageTools.detectSkinType(bytes));
 		} catch (Exception e) {
 			OfflineSkins.LOGGER.warn("读取本地皮肤文件失败", e);
 		}
