@@ -1,148 +1,91 @@
+> **English** | [中文](README_ZH.md)
+
 # OfflineSkins
 
-在**离线模式服务器**与本地单人游戏中，为客户端显示玩家真实**皮肤与披风**的 Fabric 模组；Tab 列表头像、玩家头颅与人体模型同样使用这些皮肤。
+Shows players' real **skins and capes** on **offline-mode servers** and in **singleplayer** — the tab list heads, player heads and mannequins use them too. (The **mannequin** is a vanilla decorative entity: it looks like a player and displays the skin of the profile it is given — spawn one with `/summon minecraft:mannequin ~ ~ ~ {profile:"<player name>"}`.)
 
-模组采用"旁路 + 返回处覆盖"的方式介入：拿不到皮肤数据时完全放行，行为与原版一致。
+Client-side only: **nothing has to be installed or configured on the server**. When no skin data is available the mod does not interfere at all and everything behaves exactly like vanilla.
 
-## 环境要求
+## Before you start
 
-| 项                    | 版本                               |
-|-----------------------|------------------------------------|
-| Minecraft             | 26.2                               |
-| Fabric Loader         | 0.19.5+                            |
-| Fabric API            | 0.152.2+26.2+                      |
-| Cloth Config          | 26.2.155+                          |
-| Mod Menu（可选）      | 20.0.0-beta.3+                     |
-| Java                  | 25                                 |
-| 安装位置              | 仅客户端（服务端无需安装）         |
+- Minecraft **26.2** with **Fabric Loader**
+- **Fabric API** and **Cloth Config** are required as well
+- **Mod Menu is optional** — it only adds an in-game configuration screen; without it you can use `/offlineskins reload` or edit the config file directly
 
-安装：客户端装上 Fabric Loader、Fabric API 与 Cloth Config，把本模组的 jar 放进 `mods/` 即可；**Mod Menu 是可选的**（装了才有图形化配置入口，没装就用 `/offlineskins reload` 或直接改 `config.json`）。**服务端不需要安装，也不需要任何配置。**
+## Installation
 
-## 使用说明
+Drop the mod jar into your client's `mods/` folder.
 
-### 1. 放置本地皮肤 / 披风
+## Adding skins and capes
 
-目录位于游戏目录下的 `config/offlineskins/`（正式环境即 `.minecraft/config/offlineskins/`，开发环境即 `run/config/offlineskins/`），首次启动会自动创建：
+Put the files inside `config/offlineskins/` in your game directory (for a normal client that is `.minecraft/config/offlineskins/`). The folders are created on first launch:
 
 ```
 config/offlineskins/
 ├── config.json
 ├── skins/
-│   ├── <玩家名>.png
-│   └── uuid/<32位无横线小写UUID>.png
+│   ├── <player name>.png
+│   └── uuid/<32-hex-lowercase-uuid>.png
 └── capes/
-    ├── <玩家名>.png
-    └── uuid/<32位无横线小写UUID>.png
+    ├── <player name>.png
+    └── uuid/<32-hex-lowercase-uuid>.png
 ```
 
-- **按玩家名**：`<玩家名>.png`。**离线名也可以用**，不要求正版；名字要与游戏内显示的一致（Linux 上区分大小写）。
-- **按 UUID**：`uuid/` 子目录下 `<32位无横线小写UUID>.png`（例如 `069a79f444e94726a5befca90e38aaf5.png`）。只有"档案本身已是正版 UUID"时才会**先**查它，离线档案直接按玩家名查。
-- 读取顺序：正版 UUID 档案 → 先 `uuid/` 再按名；离线档案 → 只按名。
+- **By player name**: `<player name>.png`. **Offline names work too**; the name must match what the game shows (case-sensitive on Linux).
+- **By UUID**: `uuid/<32-hex-lowercase-uuid>.png` (for example `0123456789abcdef0123456789abcdef.png`). It is only checked first when the profile already carries a premium UUID.
+- **Image rules**: 64×64 is used as-is; 64×32 is completed into 64×64 automatically (legacy skins); any other size is ignored. PNG only.
 
-### 2. 图片要求
+## Configuration
 
-| 尺寸                       | 行为                                                                                                             |
-|----------------------------|------------------------------------------------------------------------------------------------------------------|
-| **64×64**                  | 正常使用（现代皮肤）                                                                                             |
-| **64×32**                  | 自动转换为 64×64：左侧腿/臂由右侧镜像补全（这是原版对旧版皮肤的等价处理）                                        |
-| 其它（含 128×128）         | **忽略**，日志里会有一条 warn。原版玩家模型的纹理尺寸固定 64×64，HD 皮肤在原版渲染下会错位，所以不做支持         |
+`config/offlineskins/config.json` (created on first launch):
 
-必须是 PNG；损坏文件或非图片会被直接跳过（该来源视为无数据）。披风文件直接用对应尺寸的披风 PNG 即可，模组不对披风做布局转换。
+| Option (JSON key)                                           | Default | Effect                                                                                     |
+|-------------------------------------------------------------|---------|--------------------------------------------------------------------------------------------|
+| Use the Mojang skin source (`mojangSource`)                 | on      | Fetch skins and capes for premium players from Mojang; when off, only local files are used |
+| Disable skull / mannequin override (`disableSkullOverride`) | off     | When on, every skull, head item and mannequin is rendered by vanilla again                 |
+| Worker threads (`workerThreads`)                            | 8       | Range 1–32; raise it if players load slowly on a busy server                               |
 
-### 3. 配置
+- With **Mod Menu** installed you can change these in **Mod Menu → OfflineSkins → Configuration**; saving applies them immediately and writes the file back.
+- You can also edit the JSON and run `/offlineskins reload` (or restart the game).
+- Missing options are added to the file automatically; your existing values and any extra keys you added are preserved.
 
-`config/offlineskins/config.json`（首次启动自动生成）：
+## Commands
 
-```json
-{
-  "mojangSource": true,
-  "disableSkullOverride": false,
-  "workerThreads": 8
-}
-```
+| Command                | Effect                                                                                                   |
+|------------------------|----------------------------------------------------------------------------------------------------------|
+| `/offlineskins status` | Shows the current config, thread count, skin/cape service statistics and whether all 5 hooks are applied |
+| `/offlineskins reload` | Re-reads the config and applies it immediately                                                           |
+| `/offlineskins clear`  | Clears the skin caches and textures (they are rebuilt on the next render)                                |
 
-| 键                             | 默认            | 作用                                                                                                                            |
-|--------------------------------|-----------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `mojangSource`                 | `true`          | 是否使用 Mojang 官方皮肤源。关掉后只认本地文件（离线服上正版玩家的真实皮肤也就没有了）                                          |
-| `disableSkullOverride`         | `false`         | 是否停用"头颅 / 人体模型"的皮肤覆盖。`true` 时这些一律回原版渲染                                                                |
-| `workerThreads`                | `8`             | 后台工作线程数（皮肤与披风的查询、下载），范围 1–32。多人服首次进场加载慢时可调大；改完用 `/offlineskins reload` 即时生效       |
+## Priority and refresh timing
 
-配置在**启动时读取一次**：改完可以用 **Mod Menu → OfflineSkins → 配置**（需装 Mod Menu）（保存后立即生效并写回文件）、`/offlineskins reload`，或重启游戏。配置里**缺失的键会在启动时自动补进文件**（已有值不会被覆盖，你自己的其它键也会原样保留）。JSON 语法错误时会记一条日志并整体回落默认值，不会导致崩溃。 若写盘失败（目录只读、磁盘满等），本次修改**不会生效** —— 聊天栏会收到一条红色提示，日志里也有记录。
+- **Mojang's data wins over local files**: a local file usually shows first, then the official skin replaces it once it arrives. If Mojang cannot be reached (offline name, no connection) the local file stays.
+- Skins are cached in memory only — **official skins are never written to disk** and are fetched again on the next launch.
+- **Failures are retried automatically**: starting at ~5 seconds and backing off up to 160 seconds, **without leaving the world**. A local file added later is picked up too.
 
-### 4. 优先级与更新时机
+## Why is my skin not showing up?
 
-- **官方皮肤优先于本地文件**：本地文件通常先就绪 → 先显示本地；官方数据到达后**自动升级**为官方皮肤。官方拿不到（非正版名、断网等）就一直是本地文件。
-- 皮肤数据只在**内存**里缓存（15 秒访问过期），**官方皮肤不写磁盘**，下次进游戏重新拉取。
-- 模组**不写任何临时文件或缓存文件**：下载与图像处理全程在内存中完成 —— 磁盘上只会出现你自己的皮肤文件与 `config/offlineskins/config.json`。
-- **皮肤与披风共享同一次档案查询**：每个玩家的 `textures` 属性只向 sessionserver 查一次（缓存 5 分钟，写入过期），皮肤与披风各自从中取用；`/offlineskins clear` 会一并清掉它。
-- **失败会自动重试**：官方源暂时拿不到（断网、限流、超时），或本地文件是后来才放进去的，模组都会自动重试（约 5 秒起、逐步退避到最长 160 秒），**不用退出世界**；退出世界重进则立刻生效。
-- **被限流时会暂停请求**：收到 HTTP 429 后，模组暂停对该域名的请求 —— 优先采用响应里的 `Retry-After`，否则默认 60 秒、最长 15 分钟；窗口内已排队的请求直接跳过（不反复撞接口），窗口结束后自动恢复。
+1. Is the file in `<game directory>/config/offlineskins/skins/`?
+2. Does the file name match the in-game player name exactly? (case-sensitive on Linux)
+3. Is it a 64×64 or 64×32 PNG?
+4. Is that name a premium account? If so, the official skin overrides your local file — put it in `skins/uuid/<premium uuid>.png` instead, or turn the Mojang source off temporarily to check.
+5. Only heads or mannequins wrong? Check whether "disable skull / mannequin override" is on.
+6. Still stuck: run `/offlineskins status` and send the lines containing `OfflineSkins` from `logs/latest.log` to the maintainer. For more detail, add `-Dfabric.log.level=debug` to the launch arguments.
 
-### 5. 生效范围
+## Some players' skins do not come from this mod
 
-| 位置                                     | 是否生效  |
-|------------------------------------------|-----------|
-| 玩家模型（含第三人称 / F5）              | ✅        |
-| Tab 列表头像（离线服也显示）             | ✅        |
-| 玩家头颅（方块 / 物品 / 戴在怪与盔甲架） | ✅        |
-| 人体模型（`minecraft:mannequin`）        | ✅        |
-| 聊天头像字形（`/fetchprofile` 等）       | ❌ 未覆盖 |
-| 鞘翅                                     | 间接生效  |
+Only players shown as **ready** in `/offlineskins status` get their skin from this mod. Players shown as **no data** are completely untouched by it — their skin (or the default skin) comes from **vanilla**, i.e. from the profile the server sent. Typical cases: a server plugin or proxy supplied a real profile; or **Carpet fake players** (when a fake player is created for a premium name, the profile the server resolves carries the skin information, so vanilla renders the real skin).
 
-> 关于鞘翅：原版 `WingsLayer` 的规则是「`elytra` 分量优先；它为空、且玩家开启了『皮肤自定义 → 披风』显示时，取 `cape` 分量」。本模组只填 `cape`、`elytra` 留空 —— 所以**有披风时鞘翅会跟着披风走**（模组的披风同样生效），没有披风或关掉了披风显示时仍是默认鞘翅纹理。
+The most conclusive check: move this mod's jar out of `mods/` and join the same server again — **if the skin does not change, this mod is not the source**.
 
-### 6. 排障：为什么我的皮肤没生效
+## Compatibility with other mods
 
-按顺序检查：
+This mod changes where skins are obtained and how they are displayed. If another skin-related mod is installed as well (for example CustomSkinLoader, Ears, Figura), they may override each other: some skins stop working, get replaced by another one, or flicker. This mod does **no detection and no conflict handling**; to narrow it down:
 
-1. **路径**：文件在 `<游戏目录>/config/offlineskins/skins/`（开发环境 `run/config/…`）下吗？
-2. **命名**：文件名与游戏内玩家名完全一致吗？（Linux 区分大小写；服务器也可能把名字规范化过。）
-3. **尺寸**：是 64×64 或 64×32 吗？其它尺寸会被忽略，日志里有 `皮肤尺寸不受支持，已忽略`。
-4. **正版名优先**：若该玩家名是正版名，官方皮肤会覆盖本地文件。想要本地文件优先，可放入 `skins/uuid/<正版UUID>.png`；或临时把 `mojangSource` 关掉做验证。
-5. **头颅 / 人体模型**：确认 `disableSkullOverride` 没被改成 `true`。
-6. **看日志**（`.minecraft/logs/latest.log`）里的关键词：
-   `Unsupported skin size, ignored`、`Failed to read config`、`returned HTTP 429`、`Injection self-check`（以上为 warn 级别）；`Failed to read local skin file`、`Failed to fetch skin from Mojang` 属 debug 级别，默认不输出（见 §8）。
-7. **先确认"这份皮肤是不是本模组给的"**：只有 `/offlineskins status` 里显示「**就绪**」的玩家才是我们提供的；显示「**无数据**」的玩家我们完全没介入 —— 他们的皮肤（或默认皮肤）来自**原版**，也就是服务器下发的档案。常见情形：插件或代理下发了真实档案；以及 **Carpet 假人**（假人的名字若是正版账号，服务器解析出的 `GameProfile` 自带 `textures`，原版就会画出真实皮肤）。最彻底的验证：把本模组的 jar 移出 `mods/` 再进同一台服，**皮肤不变即与本模组无关**。
+1. Keep only this mod and confirm it works on its own;
+2. Add the other mods back one at a time to find the conflicting one;
+3. If you need both, disable the overlapping parts through each mod's own settings (for example turn off this mod's head/mannequin override).
 
-### 7. 关于正版验证服务器
+## License
 
-在正版验证服务器上，模组拿到的与原版是同一张皮肤（视觉无差异），代价是每个玩家每次会话多一轮查询与下载。若不想产生这些请求，把 `mojangSource` 设为 `false`（代价：离线服上也不会有官方皮肤）。
-
-### 8. 诊断命令
-
-客户端命令（不需要服务器权限）；输出跟随游戏语言 —— 目前提供英文与简体中文（语言文件位于 `assets/offlineskins/lang/`）。
-
-| 命令                         | 作用                                                                                                                                  |
-|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| `/offlineskins status`       | 彩色输出：配置值、工作线程数、皮肤/披风服务的**条目 / 就绪 / 无数据 / 重试**数、渲染缓存与纹理条目，以及 5 个注入点是否已注入         |
-| `/offlineskins reload`       | 重新读取 `config.json` 并重建两条提供者链（等价于热重载配置）                                                                         |
-| `/offlineskins clear`        | 清空皮肤缓存、纹理与名称解析缓存（下次渲染时重新构建）                                                                                |
-
-「**无数据**」表示该来源已确定没有内容（例如玩家没有披风、没有对应的本地文件），属正常状态；只有「**重试中**」才表示正在等下一次加载 —— 该行会标黄，注入点未注入会标红。
-
-另外，进入游戏后的第一次客户端 tick 会自动做一次**注入点自检**：全部正常时写一条 info；有未注入项时逐条 warn（Mixin 因版本变动失效时，这是唯一能主动发现的途径）。
-
-日志级别：默认输出 `info` 及以上；需要排查细节（本地文件读取失败、官方源抓取失败等）时，给客户端加 JVM 参数 `-Dfabric.log.level=debug`。
-
-### 9. 与其它模组的兼容性
-
-本模组会改动皮肤的获取与渲染入口（`PlayerInfo#getSkin`、头颅与人体模型的取皮肤处）。如果同时安装**其它皮肤类模组**（例如 CustomSkinLoader、Ears、Figura 等），可能互相覆盖 —— 表现为部分玩家皮肤不生效、被换成另一张、或来回闪烁。
-
-- 模组**不做运行时检测，也不做互斥处理**：谁后覆盖谁生效，顺序无法保证。
-- 排查顺序：① 只留本模组，确认它单独工作正常；② 再逐个装回其它模组，定位冲突方；③ 两者都要用时，用各自的配置关掉重叠部分（例如用 `disableSkullOverride` 关掉本模组的头颅覆盖，或使用对方提供的白名单/黑名单）。
-- 想确认本模组自身状态，用 `/offlineskins status`（见 §8）。
-
-## 构建
-
-```bash
-./gradlew build      # 产物在 build/libs/
-./gradlew runClient  # 启动开发环境客户端
-```
-
-## 开发
-
-架构、数据流、并发与缓存模型、渲染挂钩点见维护者本地文档 `Development.md`（已加入 `.gitignore`，不随仓库分发）。
-
-## 许可证
-
-本项目采用 MIT 许可证，见 [LICENSE](LICENSE)。
+This project is licensed under the MIT license, see [LICENSE](LICENSE).
