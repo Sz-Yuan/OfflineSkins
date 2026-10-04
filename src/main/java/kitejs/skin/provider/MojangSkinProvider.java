@@ -16,14 +16,13 @@ import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UndashedUuid;
 
-import net.minecraft.util.Util;
-
 import kitejs.OfflineSkins;
 import kitejs.data.SkinData;
 import kitejs.profile.OfflineUuids;
 import kitejs.profile.PlayerProfile;
 import kitejs.skin.SkinKind;
 import kitejs.skin.SkinProvider;
+import kitejs.util.BackgroundTasks;
 import kitejs.util.Downloader;
 import kitejs.util.HttpQueries;
 import kitejs.util.ImageTools;
@@ -47,7 +46,7 @@ public class MojangSkinProvider implements SkinProvider {
 	public SkinData getSkin(PlayerProfile profile) {
 		SkinData data = new SkinData();
 
-		Util.backgroundExecutor().execute(() -> load(profile, data));
+		BackgroundTasks.execute(() -> load(profile, data));
 
 		return data;
 	}
@@ -93,10 +92,13 @@ public class MojangSkinProvider implements SkinProvider {
 		}
 
 		if (resolution == null) {
-			GameProfile profile = query(name);
-			RESOLUTIONS.put(key, new Resolution(profile, now));
+			Resolution loaded = RESOLUTIONS.computeIfAbsent(key, ignored -> {
+				GameProfile profile = query(name);
 
-			return profile;
+				return profile == null ? null : new Resolution(profile, now);
+			});
+
+			return loaded == null ? null : loaded.profile;
 		}
 
 		resolution.accessedAt = now;
@@ -106,7 +108,7 @@ public class MojangSkinProvider implements SkinProvider {
 		}
 
 		if (now - resolution.writtenAt > REFRESH_INTERVAL) {
-			Util.backgroundExecutor().execute(() -> refresh(name, key));
+			BackgroundTasks.execute(() -> refresh(name, key));
 		}
 
 		return resolution.profile;
@@ -116,7 +118,7 @@ public class MojangSkinProvider implements SkinProvider {
 		GameProfile profile = query(name);
 		Resolution resolution = RESOLUTIONS.get(key);
 
-		if (resolution == null) {
+		if (resolution == null || profile == null) {
 			return;
 		}
 

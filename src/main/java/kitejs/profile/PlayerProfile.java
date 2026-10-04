@@ -59,6 +59,7 @@ public class PlayerProfile {
 		return profile == null ? null : profile.name();
 	}
 
+	@SuppressWarnings("unused")
 	public void addUpdateListener(UpdateListener listener) {
 		if (listener == null || containsIdentity(listener)) {
 			return;
@@ -67,6 +68,7 @@ public class PlayerProfile {
 		listeners.add(listener);
 	}
 
+	@SuppressWarnings("unused")
 	public void fireUpdateListeners() {
 		for (UpdateListener listener : listeners) {
 			try {

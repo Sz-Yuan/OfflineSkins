@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.Util;
 
 import kitejs.OfflineSkins;
 import kitejs.data.SkinData;
@@ -14,6 +13,7 @@ import kitejs.profile.OfflineUuids;
 import kitejs.profile.PlayerProfile;
 import kitejs.skin.SkinKind;
 import kitejs.skin.SkinProvider;
+import kitejs.util.BackgroundTasks;
 import kitejs.util.ImageTools;
 
 public class LocalSkinProvider implements SkinProvider {
@@ -37,7 +37,7 @@ public class LocalSkinProvider implements SkinProvider {
 	public SkinData getSkin(PlayerProfile profile) {
 		SkinData data = new SkinData();
 
-		Util.backgroundExecutor().execute(() -> load(profile, data));
+		BackgroundTasks.execute(() -> load(profile, data));
 
 		return data;
 	}
