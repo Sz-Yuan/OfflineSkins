@@ -57,7 +57,7 @@ public class SkinService {
 
 			return aggregate;
 		} catch (Exception e) {
-			OfflineSkins.LOGGER.warn("皮肤服务加载档案失败", e);
+			OfflineSkins.LOGGER.warn("Failed to load skin data for profile", e);
 			return NOT_READY;
 		}
 	}
@@ -72,11 +72,31 @@ public class SkinService {
 
 	public void clearProviders() {
 		providers.clear();
-		releaseAll();
+		invalidateAll();
 	}
 
 	public void cleanUp() {
 		cache.cleanUp();
+	}
+
+	public int size() {
+		return cache.asMap().size();
+	}
+
+	public int readyCount() {
+		int ready = 0;
+
+		for (AggregateSkinData data : cache.asMap().values()) {
+			if (data.isDataReady()) {
+				ready++;
+			}
+		}
+
+		return ready;
+	}
+
+	public int retryCount() {
+		return retries.size();
 	}
 
 	private void retry(PlayerProfile profile, AggregateSkinData aggregate) {
@@ -100,7 +120,7 @@ public class SkinService {
 		aggregate.set(loadMembers(profile));
 	}
 
-	private void releaseAll() {
+	public void invalidateAll() {
 		for (AggregateSkinData data : cache.asMap().values()) {
 			data.onRemoval();
 		}
@@ -126,7 +146,7 @@ public class SkinService {
 					collected.add(data);
 				}
 			} catch (Exception e) {
-				OfflineSkins.LOGGER.warn("皮肤提供者执行失败", e);
+				OfflineSkins.LOGGER.warn("Skin provider failed", e);
 			}
 		}
 

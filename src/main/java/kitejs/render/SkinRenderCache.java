@@ -38,6 +38,14 @@ public final class SkinRenderCache {
 		CACHE.cleanUp();
 	}
 
+	public static void invalidateAll() {
+		CACHE.invalidateAll();
+	}
+
+	public static int size() {
+		return CACHE.asMap().size();
+	}
+
 	public static PlayerSkin getSkin(PlayerProfile profile) {
 		if (profile == null || bodyService == null || capeService == null) {
 			return null;

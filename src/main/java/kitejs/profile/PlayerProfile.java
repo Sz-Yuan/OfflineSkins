@@ -74,7 +74,7 @@ public class PlayerProfile {
 			try {
 				listener.onProfileUpdated(this);
 			} catch (RuntimeException e) {
-				OfflineSkins.LOGGER.warn("档案更新监听器抛出异常", e);
+				OfflineSkins.LOGGER.warn("Profile update listener threw an exception", e);
 			}
 		}
 	}

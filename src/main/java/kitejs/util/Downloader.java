@@ -25,9 +25,26 @@ public final class Downloader {
 			HttpURLConnection connection = null;
 
 			try {
+				URI uri = URI.create(target);
+				String host = RateLimits.host(uri);
+
+				if (RateLimits.isBlocked(host)) {
+					RateLimits.noteSkipped(host);
+
+					return Optional.empty();
+				}
+
 				connection = open(target);
 
-				if (connection.getResponseCode() / 100 == 4) {
+				int status = connection.getResponseCode();
+
+				if (status == RateLimits.TOO_MANY_REQUESTS) {
+					RateLimits.block(host, RateLimits.retryAfterMillis(connection));
+
+					return Optional.empty();
+				}
+
+				if (status / 100 == 4) {
 					return Optional.empty();
 				}
 
@@ -65,6 +82,7 @@ public final class Downloader {
 		connection.setReadTimeout(READ_TIMEOUT);
 		connection.setUseCaches(true);
 		connection.setDoInput(true);
+		connection.setRequestProperty("User-Agent", HttpQueries.USER_AGENT);
 
 		return connection;
 	}

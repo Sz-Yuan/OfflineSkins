@@ -1,0 +1,18 @@
+{
+	"offlineskins.command.reloaded": "OfflineSkins: config reloaded, provider chains rebuilt",
+	"offlineskins.command.cleared": "OfflineSkins: skin caches, textures and name lookups cleared",
+	"offlineskins.status.header": "OfflineSkins status",
+	"offlineskins.status.config": "Config: mojangSource=%s, disableSkullOverride=%s",
+	"offlineskins.status.skinService": "Skin service: %s entries, %s ready, %s retrying",
+	"offlineskins.status.capeService": "Cape service: %s entries, %s ready, %s retrying",
+	"offlineskins.status.renderCache": "Render supplier cache: %s entries",
+	"offlineskins.status.textures": "Texture registry: %s entries",
+	"offlineskins.status.hook": "Hook %s: %s",
+	"offlineskins.status.hook.applied": "applied",
+	"offlineskins.status.hook.missing": "MISSING - feature disabled",
+	"offlineskins.hook.playerInfo": "1) PlayerInfo#getSkin (core)",
+	"offlineskins.hook.tabOverlay": "2) PlayerTabOverlay#extractRenderState (tab heads)",
+	"offlineskins.hook.skullRenderer": "3) SkullBlockRenderer#resolveSkullRenderType (skull blocks)",
+	"offlineskins.hook.skinRenderCache": "4) PlayerSkinRenderCache#getOrDefault (head items, worn heads)",
+	"offlineskins.hook.mannequin": "5) ClientMannequin#getSkin (mannequin)"
+}

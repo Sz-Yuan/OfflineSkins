@@ -20,6 +20,12 @@ public final class DynamicSkinTextures {
 	private DynamicSkinTextures() {
 	}
 
+	public static int size() {
+		synchronized (TEXTURES) {
+			return TEXTURES.size();
+		}
+	}
+
 	public static Identifier resolve(SkinData data) {
 		if (data == null || !data.isDataReady()) {
 			return null;

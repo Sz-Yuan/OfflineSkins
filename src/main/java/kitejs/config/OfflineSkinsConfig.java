@@ -27,7 +27,7 @@ public class OfflineSkinsConfig {
 		try {
 			Files.createDirectories(directory);
 		} catch (IOException e) {
-			OfflineSkins.LOGGER.warn("创建配置目录失败", e);
+			OfflineSkins.LOGGER.warn("Failed to create config directory", e);
 		}
 
 		if (!Files.isRegularFile(file)) {
@@ -42,7 +42,7 @@ public class OfflineSkinsConfig {
 
 			return config == null ? new OfflineSkinsConfig() : config;
 		} catch (Exception e) {
-			OfflineSkins.LOGGER.warn("读取配置失败，已回落默认值", e);
+			OfflineSkins.LOGGER.warn("Failed to read config, falling back to defaults", e);
 			return new OfflineSkinsConfig();
 		}
 	}
@@ -51,15 +51,15 @@ public class OfflineSkinsConfig {
 		return mojangSource;
 	}
 
-	public boolean isSkullOverrideEnabled() {
-		return !disableSkullOverride;
+	public boolean isSkullOverrideDisabled() {
+		return disableSkullOverride;
 	}
 
 	private static void write(Path file, OfflineSkinsConfig config) {
 		try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
 			GSON.toJson(config, writer);
 		} catch (IOException e) {
-			OfflineSkins.LOGGER.warn("写入默认配置失败", e);
+			OfflineSkins.LOGGER.warn("Failed to write default config", e);
 		}
 	}
 }

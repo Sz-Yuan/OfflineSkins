@@ -84,7 +84,7 @@ public class SkinData {
 			try {
 				listener.accept(this);
 			} catch (RuntimeException e) {
-				OfflineSkins.LOGGER.warn("皮肤数据移除监听器抛出异常", e);
+				OfflineSkins.LOGGER.warn("Skin removal listener threw an exception", e);
 			}
 		}
 	}

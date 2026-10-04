@@ -42,6 +42,10 @@ public class MojangSkinProvider implements SkinProvider {
 		this.kind = kind;
 	}
 
+	public static void clearCache() {
+		RESOLUTIONS.clear();
+	}
+
 	@Override
 	public SkinData getSkin(PlayerProfile profile) {
 		SkinData data = new SkinData();
@@ -77,7 +81,7 @@ public class MojangSkinProvider implements SkinProvider {
 				data.put(bytes.get(), texture.type());
 			}
 		} catch (Exception e) {
-			OfflineSkins.LOGGER.warn("官方源获取皮肤失败", e);
+			OfflineSkins.LOGGER.debug("Failed to fetch skin from Mojang", e);
 		}
 	}
 

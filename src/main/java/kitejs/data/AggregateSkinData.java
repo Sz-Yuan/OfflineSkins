@@ -15,7 +15,7 @@ public class AggregateSkinData extends SkinData {
 
 	@Override
 	public void put(byte[] bytes, String type) {
-		throw new UnsupportedOperationException("聚合容器不接受直接写入");
+		throw new UnsupportedOperationException("Aggregate containers do not accept direct writes");
 	}
 
 	public void set(Collection<SkinData> newMembers) {
@@ -47,7 +47,7 @@ public class AggregateSkinData extends SkinData {
 			try {
 				member.onRemoval();
 			} catch (RuntimeException e) {
-				OfflineSkins.LOGGER.warn("聚合容器替换成员时成员移除失败", e);
+				OfflineSkins.LOGGER.warn("Failed to remove member while replacing aggregate members", e);
 			}
 		}
 	}
@@ -103,7 +103,7 @@ public class AggregateSkinData extends SkinData {
 			try {
 				member.onRemoval();
 			} catch (RuntimeException e) {
-				OfflineSkins.LOGGER.warn("聚合容器移除成员失败", e);
+				OfflineSkins.LOGGER.warn("Failed to remove aggregate member", e);
 			}
 		}
 	}

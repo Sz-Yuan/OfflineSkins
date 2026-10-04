@@ -3,7 +3,7 @@
 	"id": "offlineskins",
 	"version": "${version}",
 	"name": "OfflineSkins",
-	"description": "在离线模式服务器与本地单人游戏中，为客户端显示玩家的真实皮肤与披风（含 Tab 列表头像与玩家头颅）。",
+	"description": "Shows real skins and capes for players on offline-mode servers and in singleplayer, including the tab list heads, player heads and mannequins.",
 	"authors": [
 		"KiteJs"
 	],

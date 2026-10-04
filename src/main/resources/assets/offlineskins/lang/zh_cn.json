@@ -1,0 +1,18 @@
+{
+	"offlineskins.command.reloaded": "OfflineSkins：已重新读取配置并重建提供者链",
+	"offlineskins.command.cleared": "OfflineSkins：皮肤缓存、纹理与名称解析缓存已清空",
+	"offlineskins.status.header": "OfflineSkins 状态",
+	"offlineskins.status.config": "配置：mojangSource=%s，disableSkullOverride=%s",
+	"offlineskins.status.skinService": "皮肤服务：条目 %s，就绪 %s，重试中 %s",
+	"offlineskins.status.capeService": "披风服务：条目 %s，就绪 %s，重试中 %s",
+	"offlineskins.status.renderCache": "渲染供应商缓存：条目 %s",
+	"offlineskins.status.textures": "纹理登记：条目 %s",
+	"offlineskins.status.hook": "注入点 %s：%s",
+	"offlineskins.status.hook.applied": "已注入",
+	"offlineskins.status.hook.missing": "未注入 —— 该功能已失效",
+	"offlineskins.hook.playerInfo": "1) PlayerInfo#getSkin（核心）",
+	"offlineskins.hook.tabOverlay": "2) PlayerTabOverlay#extractRenderState（Tab 头像）",
+	"offlineskins.hook.skullRenderer": "3) SkullBlockRenderer#resolveSkullRenderType（头颅方块）",
+	"offlineskins.hook.skinRenderCache": "4) PlayerSkinRenderCache#getOrDefault（头颅物品 / 戴怪）",
+	"offlineskins.hook.mannequin": "5) ClientMannequin#getSkin（人体模型）"
+}

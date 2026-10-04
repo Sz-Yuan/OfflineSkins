@@ -50,13 +50,13 @@ public class LocalSkinProvider implements SkinProvider {
 				String type = kind == SkinKind.CAPE ? SkinData.TYPE_CAPE : ImageTools.detectSkinType(bytes);
 
 				if (SkinData.TYPE_UNKNOWN.equals(type)) {
-					OfflineSkins.LOGGER.warn("皮肤尺寸不受支持，已忽略（原版只接受 64x32 与 64x64）");
+					OfflineSkins.LOGGER.warn("Unsupported skin size, ignored (vanilla only accepts 64x32 and 64x64)");
 				} else {
 					data.put(bytes, type);
 				}
 			}
 		} catch (Exception e) {
-			OfflineSkins.LOGGER.warn("读取本地皮肤文件失败", e);
+			OfflineSkins.LOGGER.debug("Failed to read local skin file", e);
 		}
 	}
 
@@ -95,7 +95,7 @@ public class LocalSkinProvider implements SkinProvider {
 		try {
 			Files.createDirectories(path);
 		} catch (IOException e) {
-			OfflineSkins.LOGGER.warn("创建本地皮肤目录失败: {}", path, e);
+			OfflineSkins.LOGGER.warn("Failed to create local skin directory: {}", path, e);
 		}
 	}
 }
