@@ -20,17 +20,27 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
+// 版本号统一由 gradle.properties 提供，在此展开进 fabric.mod.json，
+// 升级 Minecraft / Loader / Java 时只需修改 gradle.properties。
+// 注意：Mixin 配置（offlineskins.mixins.json）不能用 ${} 占位符——Mixin/Loom 与 IDE 的
+// 工具链会直接读取 src/main/resources 下的源文件，绕开 processResources，导致占位符无法解析。
 processResources {
-	def version = project.version
-	inputs.property "version", version
+	def expandProps = [
+		"version"           : project.version,
+		"minecraft_version" : project.minecraft_version,
+		"loader_version"    : project.loader_version,
+		"fabric_api_version": project.fabric_api_version,
+		"java_version"      : project.java_version
+	]
+	inputs.properties expandProps
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand expandProps
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
+	it.options.release = project.java_version.toInteger()
 }
 
 java {
@@ -39,8 +49,8 @@ java {
 	// If you remove this line, sources will not be generated.
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
+	sourceCompatibility = project.java_version
+	targetCompatibility = project.java_version
 }
 
 jar {

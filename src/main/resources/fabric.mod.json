@@ -3,17 +3,13 @@
 	"id": "offlineskins",
 	"version": "${version}",
 	"name": "OfflineSkins",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "在离线模式服务器与本地单人游戏中，为客户端显示玩家的真实皮肤与披风（含 Tab 列表头像与玩家头颅）。",
 	"authors": [
-		"Me!"
+		"KiteJs"
 	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
 	"license": "CC0-1.0",
 	"icon": "assets/offlineskins/icon.png",
-	"environment": "*",
+	"environment": "client",
 	"entrypoints": {
 		"main": [
 			"kitejs.OfflineSkins"
@@ -23,9 +19,9 @@
 		"offlineskins.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.19.5",
-		"minecraft": "~26.2",
-		"java": ">=25",
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=${java_version}",
 		"fabric-api": "*"
 	}
 }
