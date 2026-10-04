@@ -145,4 +145,4 @@ config/offlineskins/
 
 ## 许可证
 
-本项目采用 CC0-1.0，见 [LICENSE](LICENSE)。
+本项目采用 MIT 许可证，见 [LICENSE](LICENSE)。
