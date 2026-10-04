@@ -23,9 +23,12 @@ public class OfflineSkins implements ClientModInitializer {
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+	private static final long CLEANUP_INTERVAL = 1_000L;
+
 	private static SkinService body;
 	private static SkinService cape;
 	private static boolean skullOverrideDisabled;
+	private static long lastCleanUp;
 
 	@Override
 	public void onInitializeClient() {
@@ -62,6 +65,8 @@ public class OfflineSkins implements ClientModInitializer {
 
 	private static void onEndTick(Minecraft client) {
 		if (client.level == null) {
+			cleanUp();
+
 			return;
 		}
 
@@ -76,5 +81,19 @@ public class OfflineSkins implements ClientModInitializer {
 			body.getSkin(profile);
 			cape.getSkin(profile);
 		}
+	}
+
+	private static void cleanUp() {
+		long now = System.currentTimeMillis();
+
+		if (now - lastCleanUp < CLEANUP_INTERVAL) {
+			return;
+		}
+
+		lastCleanUp = now;
+
+		SkinRenderCache.cleanUp();
+		body.cleanUp();
+		cape.cleanUp();
 	}
 }

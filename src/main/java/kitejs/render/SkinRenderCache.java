@@ -34,6 +34,10 @@ public final class SkinRenderCache {
 		capeService = cape;
 	}
 
+	public static void cleanUp() {
+		CACHE.cleanUp();
+	}
+
 	public static PlayerSkin getSkin(PlayerProfile profile) {
 		if (profile == null || bodyService == null || capeService == null) {
 			return null;

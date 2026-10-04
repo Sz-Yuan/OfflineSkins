@@ -58,7 +58,14 @@ public class SkinService {
 
 	public void clearProviders() {
 		providers.clear();
+		releaseAll();
+	}
 
+	public void cleanUp() {
+		cache.cleanUp();
+	}
+
+	private void releaseAll() {
 		for (AggregateSkinData data : cache.asMap().values()) {
 			data.onRemoval();
 		}
