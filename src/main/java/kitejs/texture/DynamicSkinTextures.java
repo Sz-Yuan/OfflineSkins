@@ -47,13 +47,22 @@ public final class DynamicSkinTextures {
 			return null;
 		}
 
+		NativeImage fixed = SkinData.TYPE_CAPE.equals(data.getType()) ? image : SkinImageFix.apply(image);
+
+		if (fixed == null) {
+			image.close();
+
+			return null;
+		}
+
 		Minecraft minecraft = Minecraft.getInstance();
 		Identifier identifier = Identifier.fromNamespaceAndPath(OfflineSkins.MOD_ID, "textures/generated/" + UUID.randomUUID());
 
 		try {
-			minecraft.getTextureManager().register(identifier, new DynamicTexture(identifier::toString, image));
+			minecraft.getTextureManager().register(identifier, new DynamicTexture(identifier::toString, fixed));
 		} catch (Exception e) {
-			image.close();
+			fixed.close();
+
 			return null;
 		}
 

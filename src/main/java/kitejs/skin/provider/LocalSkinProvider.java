@@ -15,7 +15,6 @@ import kitejs.profile.PlayerProfile;
 import kitejs.skin.SkinKind;
 import kitejs.skin.SkinProvider;
 import kitejs.util.ImageTools;
-import kitejs.util.LegacySkinConverter;
 
 public class LocalSkinProvider implements SkinProvider {
 	private final SkinKind kind;
@@ -38,10 +37,6 @@ public class LocalSkinProvider implements SkinProvider {
 	public SkinData getSkin(PlayerProfile profile) {
 		SkinData data = new SkinData();
 
-		if (kind == SkinKind.SKIN) {
-			data.addFilter(LegacySkinConverter.INSTANCE);
-		}
-
 		Util.backgroundExecutor().execute(() -> load(profile, data));
 
 		return data;
@@ -52,7 +47,13 @@ public class LocalSkinProvider implements SkinProvider {
 			byte[] bytes = read(profile);
 
 			if (bytes != null && ImageTools.isValidPng(bytes)) {
-				data.put(bytes, kind == SkinKind.CAPE ? SkinData.TYPE_CAPE : ImageTools.detectSkinType(bytes));
+				String type = kind == SkinKind.CAPE ? SkinData.TYPE_CAPE : ImageTools.detectSkinType(bytes);
+
+				if (SkinData.TYPE_UNKNOWN.equals(type)) {
+					OfflineSkins.LOGGER.warn("皮肤尺寸不受支持，已忽略（原版只接受 64x32 与 64x64）");
+				} else {
+					data.put(bytes, type);
+				}
 			}
 		} catch (Exception e) {
 			OfflineSkins.LOGGER.warn("读取本地皮肤文件失败", e);

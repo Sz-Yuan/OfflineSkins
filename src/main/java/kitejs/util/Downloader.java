@@ -1,12 +1,10 @@
 package kitejs.util;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Optional;
 
 import net.minecraft.client.Minecraft;
@@ -24,32 +22,29 @@ public final class Downloader {
 		String target = normalize(url);
 
 		for (int attempt = 0; attempt < ATTEMPTS; attempt++) {
-			Path file = null;
+			HttpURLConnection connection = null;
 
 			try {
-				file = Files.createTempFile("offlineskins", ".tmp");
+				connection = open(target);
 
-				HttpURLConnection connection = open(target);
-
-				try {
-					if (connection.getResponseCode() / 100 == 4) {
-						return Optional.empty();
-					}
-
-					try (InputStream input = connection.getInputStream(); OutputStream output = Files.newOutputStream(file)) {
-						input.transferTo(output);
-					}
-				} finally {
-					connection.disconnect();
+				if (connection.getResponseCode() / 100 == 4) {
+					return Optional.empty();
 				}
 
-				return Optional.of(Files.readAllBytes(file));
+				try (InputStream input = connection.getInputStream()) {
+					ByteArrayOutputStream output = new ByteArrayOutputStream();
+					input.transferTo(output);
+
+					return Optional.of(output.toByteArray());
+				}
 			} catch (IOException ignored) {
 				pause();
 			} catch (Exception ignored) {
 				return Optional.empty();
 			} finally {
-				deleteQuietly(file);
+				if (connection != null) {
+					connection.disconnect();
+				}
 			}
 		}
 
@@ -79,18 +74,6 @@ public final class Downloader {
 			Thread.sleep(RETRY_DELAY);
 		} catch (InterruptedException ignored) {
 			Thread.currentThread().interrupt();
-		}
-	}
-
-	private static void deleteQuietly(Path file) {
-		if (file == null) {
-			return;
-		}
-
-		try {
-			Files.deleteIfExists(file);
-		} catch (IOException ignored) {
-			file.toFile().deleteOnExit();
 		}
 	}
 }

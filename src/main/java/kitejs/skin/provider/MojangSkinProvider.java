@@ -27,7 +27,6 @@ import kitejs.skin.SkinProvider;
 import kitejs.util.Downloader;
 import kitejs.util.HttpQueries;
 import kitejs.util.ImageTools;
-import kitejs.util.LegacySkinConverter;
 
 public class MojangSkinProvider implements SkinProvider {
 	private static final Gson GSON = new Gson();
@@ -47,10 +46,6 @@ public class MojangSkinProvider implements SkinProvider {
 	@Override
 	public SkinData getSkin(PlayerProfile profile) {
 		SkinData data = new SkinData();
-
-		if (kind == SkinKind.SKIN) {
-			data.addFilter(LegacySkinConverter.INSTANCE);
-		}
 
 		Util.backgroundExecutor().execute(() -> load(profile, data));
 
