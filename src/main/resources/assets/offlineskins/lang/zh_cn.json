@@ -15,5 +15,14 @@
 	"offlineskins.hook.tabOverlay": "2) PlayerTabOverlay#extractRenderState（Tab 头像）",
 	"offlineskins.hook.skullRenderer": "3) SkullBlockRenderer#resolveSkullRenderType（头颅方块）",
 	"offlineskins.hook.skinRenderCache": "4) PlayerSkinRenderCache#getOrDefault（头颅物品 / 戴怪）",
-	"offlineskins.hook.mannequin": "5) ClientMannequin#getSkin（人体模型）"
+	"offlineskins.hook.mannequin": "5) ClientMannequin#getSkin（人体模型）",
+	"offlineskins.config.title": "OfflineSkins 配置",
+	"offlineskins.config.category.general": "通用",
+	"offlineskins.config.mojangSource": "使用 Mojang 官方皮肤源",
+	"offlineskins.config.mojangSource.tooltip": "从 Mojang 获取皮肤与披风；关闭后只使用本地文件。",
+	"offlineskins.config.disableSkullOverride": "停用头颅 / 人体模型覆盖",
+	"offlineskins.config.disableSkullOverride.tooltip": "让原版渲染所有头颅、头颅物品与人体模型。",
+	"offlineskins.config.workerThreads": "后台工作线程数",
+	"offlineskins.config.workerThreads.tooltip": "用于查询与下载皮肤/披风的后台线程数（1–32）。多人服加载慢时可调大。",
+	"offlineskins.config.saveFailed": "OfflineSkins：写入 config.json 失败，本次修改未生效（详见日志）"
 }

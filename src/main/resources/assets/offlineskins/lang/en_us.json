@@ -15,5 +15,14 @@
 	"offlineskins.hook.tabOverlay": "2) PlayerTabOverlay#extractRenderState (tab heads)",
 	"offlineskins.hook.skullRenderer": "3) SkullBlockRenderer#resolveSkullRenderType (skull blocks)",
 	"offlineskins.hook.skinRenderCache": "4) PlayerSkinRenderCache#getOrDefault (head items, worn heads)",
-	"offlineskins.hook.mannequin": "5) ClientMannequin#getSkin (mannequin)"
+	"offlineskins.hook.mannequin": "5) ClientMannequin#getSkin (mannequin)",
+	"offlineskins.config.title": "OfflineSkins Configuration",
+	"offlineskins.config.category.general": "General",
+	"offlineskins.config.mojangSource": "Use Mojang skin source",
+	"offlineskins.config.mojangSource.tooltip": "Fetch skins and capes from Mojang. When disabled, only local files are used.",
+	"offlineskins.config.disableSkullOverride": "Disable skull / mannequin override",
+	"offlineskins.config.disableSkullOverride.tooltip": "Let vanilla render every skull, head item and mannequin.",
+	"offlineskins.config.workerThreads": "Worker threads",
+	"offlineskins.config.workerThreads.tooltip": "Background threads for skin and cape lookups (1-32). Raise it if players load slowly on busy servers.",
+	"offlineskins.config.saveFailed": "OfflineSkins: failed to write config.json - the changes were NOT applied (see the log)"
 }

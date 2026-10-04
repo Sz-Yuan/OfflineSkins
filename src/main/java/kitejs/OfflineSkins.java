@@ -77,6 +77,10 @@ public class OfflineSkins implements ClientModInitializer {
 		return skullOverrideDisabled;
 	}
 
+	public static OfflineSkinsConfig config() {
+		return config;
+	}
+
 	public static List<Component> statusLines() {
 		List<Component> lines = new ArrayList<>();
 

@@ -13,6 +13,9 @@
 	"entrypoints": {
 		"client": [
 			"kitejs.OfflineSkins"
+		],
+		"modmenu": [
+			"kitejs.config.OfflineSkinsModMenu"
 		]
 	},
 	"mixins": [
@@ -22,6 +25,8 @@
 		"fabricloader": ">=${loader_version}",
 		"minecraft": "~${minecraft_version}",
 		"java": ">=${java_version}",
-		"fabric-api": "*"
+		"fabric-api": "*",
+		"cloth-config": ">=${cloth_config_version}",
+		"modmenu": ">=${modmenu_version}"
 	}
 }

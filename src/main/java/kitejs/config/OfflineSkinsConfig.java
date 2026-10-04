@@ -81,19 +81,66 @@ public class OfflineSkinsConfig {
 		return mojangSource;
 	}
 
+	public void setMojangSource(boolean enabled) {
+		mojangSource = enabled;
+	}
+
 	public boolean isSkullOverrideDisabled() {
 		return disableSkullOverride;
+	}
+
+	public void setSkullOverrideDisabled(boolean disabled) {
+		disableSkullOverride = disabled;
 	}
 
 	public int getWorkerThreads() {
 		return workerThreads;
 	}
 
-	private static void write(Path file, JsonObject config) {
+	public void setWorkerThreads(int threads) {
+		workerThreads = threads;
+	}
+
+	public boolean save() {
+		Path directory = FabricLoader.getInstance().getConfigDir().resolve("offlineskins");
+		Path file = directory.resolve("config.json");
+		JsonObject stored = new JsonObject();
+
+		try {
+			Files.createDirectories(directory);
+		} catch (IOException e) {
+			OfflineSkins.LOGGER.warn("Failed to create config directory", e);
+
+			return false;
+		}
+
+		if (Files.isRegularFile(file)) {
+			try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+				JsonObject existing = GSON.fromJson(reader, JsonObject.class);
+
+				if (existing != null) {
+					stored = existing;
+				}
+			} catch (Exception ignored) {
+			}
+		}
+
+		for (Map.Entry<String, JsonElement> entry : GSON.toJsonTree(this).getAsJsonObject().entrySet()) {
+			stored.add(entry.getKey(), entry.getValue());
+		}
+
+		return write(file, stored);
+	}
+
+	private static boolean write(Path file, JsonObject config) {
 		try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
 			GSON.toJson(config, writer);
+
+			return true;
 		} catch (IOException e) {
-			OfflineSkins.LOGGER.warn("Failed to write config", e);
+			OfflineSkins.LOGGER.warn("Failed to write config: {}", file, e);
+
+			return false;
 		}
 	}
 }
