@@ -88,4 +88,4 @@ This mod changes where skins are obtained and how they are displayed. If another
 
 ## License
 
-This project is licensed under the MIT license, see [LICENSE](LICENSE).
+Core logic of this mod was developed with reference to [zlainsama/OfflineSkins](https://github.com/zlainsama/OfflineSkins). This project is licensed under the MIT license, see [LICENSE](LICENSE).
