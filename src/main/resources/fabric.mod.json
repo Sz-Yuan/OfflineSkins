@@ -7,6 +7,9 @@
 	"authors": [
 		"KiteJs"
 	],
+	"contact": {
+		"sources": "https://github.com/Sz-Yuan/OfflineSkins"
+	},
 	"license": "MIT",
 	"icon": "assets/offlineskins/icon.png",
 	"environment": "client",
