@@ -2,6 +2,9 @@ package kitejs.data;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -20,6 +23,7 @@ public class SkinData {
 
 	private ByteBuffer data;
 	private String type;
+	private String contentHash;
 	private volatile boolean unavailable;
 
 	public void put(byte[] bytes, String type) {
@@ -40,6 +44,7 @@ public class SkinData {
 		synchronized (this) {
 			this.data = buffer;
 			this.type = type;
+			this.contentHash = contentHash(buffer);
 		}
 	}
 
@@ -53,6 +58,23 @@ public class SkinData {
 
 	public synchronized boolean isUnavailable() {
 		return data == null && unavailable;
+	}
+
+	public synchronized String getContentHash() {
+		return contentHash;
+	}
+
+	private static String contentHash(ByteBuffer buffer) {
+		ByteBuffer view = buffer.duplicate();
+
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			digest.update(view);
+
+			return HexFormat.of().formatHex(digest.digest());
+		} catch (NoSuchAlgorithmException e) {
+			return Integer.toHexString(System.identityHashCode(buffer));
+		}
 	}
 
 	public synchronized ByteBuffer getData() {

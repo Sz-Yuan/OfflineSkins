@@ -3,7 +3,7 @@ package kitejs.texture;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.mojang.blaze3d.platform.NativeImage;
 
@@ -15,15 +15,13 @@ import kitejs.OfflineSkins;
 import kitejs.data.SkinData;
 
 public final class DynamicSkinTextures {
-	private static final Map<ByteBuffer, Identifier> TEXTURES = new WeakHashMap<>();
+	private static final Map<String, Identifier> TEXTURES = new ConcurrentHashMap<>();
 
 	private DynamicSkinTextures() {
 	}
 
 	public static int size() {
-		synchronized (TEXTURES) {
-			return TEXTURES.size();
-		}
+		return TEXTURES.size();
 	}
 
 	public static Identifier resolve(SkinData data) {
@@ -31,18 +29,22 @@ public final class DynamicSkinTextures {
 			return null;
 		}
 
+		String key = data.getContentHash();
+
+		if (key == null) {
+			return null;
+		}
+
+		Identifier existing = TEXTURES.get(key);
+
+		if (existing != null) {
+			return existing;
+		}
+
 		ByteBuffer buffer = data.getData();
 
 		if (buffer == null) {
 			return null;
-		}
-
-		synchronized (TEXTURES) {
-			Identifier existing = TEXTURES.get(buffer);
-
-			if (existing != null) {
-				return existing;
-			}
 		}
 
 		NativeImage image;
@@ -72,28 +74,21 @@ public final class DynamicSkinTextures {
 			return null;
 		}
 
-		synchronized (TEXTURES) {
-			TEXTURES.put(buffer, identifier);
-		}
+		TEXTURES.put(key, identifier);
 
 		data.addListener(removed -> {
 			if (removed.getData() != buffer) {
 				return;
 			}
 
-			minecraft.execute(() -> release(identifier, buffer));
+			minecraft.execute(() -> release(identifier, key));
 		});
 
 		return identifier;
 	}
 
-	private static void release(Identifier identifier, ByteBuffer buffer) {
+	private static void release(Identifier identifier, String key) {
 		Minecraft.getInstance().getTextureManager().release(identifier);
-
-		synchronized (TEXTURES) {
-			if (TEXTURES.get(buffer) == identifier) {
-				TEXTURES.remove(buffer);
-			}
-		}
+		TEXTURES.remove(key, identifier);
 	}
 }

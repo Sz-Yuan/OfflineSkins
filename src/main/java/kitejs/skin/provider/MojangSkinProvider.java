@@ -5,10 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -35,9 +33,11 @@ public class MojangSkinProvider implements SkinProvider {
 	private static final GameProfile NOT_PREMIUM = new GameProfile(new UUID(0L, 0L), "");
 	private static final String NAME_URL = "https://api.mojang.com/users/profiles/minecraft/";
 	private static final String PROFILE_URL = "https://sessionserver.mojang.com/session/minecraft/profile/";
-	private static final long ACCESS_TTL = 3L * 60L * 60L * 1000L;
 	private static final long REFRESH_INTERVAL = 30L * 60L * 1000L;
-	private static final Map<String, Resolution> RESOLUTIONS = new ConcurrentHashMap<>();
+	private static final Cache<String, Resolution> RESOLUTIONS = CacheBuilder.newBuilder()
+		.expireAfterAccess(Duration.ofHours(3L))
+		.maximumSize(4096L)
+		.build();
 	private static final Cache<UUID, ProfileTextures> TEXTURES = CacheBuilder.newBuilder()
 		.expireAfterWrite(Duration.ofMinutes(5L))
 		.maximumSize(512L)
@@ -50,7 +50,7 @@ public class MojangSkinProvider implements SkinProvider {
 	}
 
 	public static void clearCache() {
-		RESOLUTIONS.clear();
+		RESOLUTIONS.invalidateAll();
 		TEXTURES.invalidateAll();
 	}
 
@@ -111,31 +111,21 @@ public class MojangSkinProvider implements SkinProvider {
 
 	private static GameProfile resolve(String name) {
 		String key = name.toLowerCase(Locale.ROOT);
-		long now = System.currentTimeMillis();
-		Resolution resolution = RESOLUTIONS.get(key);
+		Resolution resolution = RESOLUTIONS.asMap().computeIfAbsent(key, ignored -> {
+			GameProfile profile = query(name);
 
-		if (resolution != null && now - resolution.accessedAt > ACCESS_TTL) {
-			RESOLUTIONS.remove(key, resolution);
-			resolution = null;
-		}
+			return profile == null ? null : new Resolution(profile);
+		});
 
 		if (resolution == null) {
-			Resolution loaded = RESOLUTIONS.computeIfAbsent(key, ignored -> {
-				GameProfile profile = query(name);
-
-				return profile == null ? null : new Resolution(profile, now);
-			});
-
-			return loaded == null ? null : loaded.profile;
+			return null;
 		}
-
-		resolution.accessedAt = now;
 
 		if (resolution.profile != null && resolution.profile != NOT_PREMIUM) {
 			return resolution.profile;
 		}
 
-		if (now - resolution.writtenAt > REFRESH_INTERVAL) {
+		if (System.currentTimeMillis() - resolution.writtenAt > REFRESH_INTERVAL) {
 			BackgroundTasks.execute(() -> refresh(name, key));
 		}
 
@@ -144,7 +134,7 @@ public class MojangSkinProvider implements SkinProvider {
 
 	private static void refresh(String name, String key) {
 		GameProfile profile = query(name);
-		Resolution resolution = RESOLUTIONS.get(key);
+		Resolution resolution = RESOLUTIONS.getIfPresent(key);
 
 		if (resolution == null || profile == null) {
 			return;
@@ -287,12 +277,10 @@ public class MojangSkinProvider implements SkinProvider {
 	private static final class Resolution {
 		private volatile GameProfile profile;
 		private volatile long writtenAt;
-		private volatile long accessedAt;
 
-		private Resolution(GameProfile profile, long now) {
+		private Resolution(GameProfile profile) {
 			this.profile = profile;
-			this.writtenAt = now;
-			this.accessedAt = now;
+			this.writtenAt = System.currentTimeMillis();
 		}
 	}
 }

@@ -70,6 +70,12 @@ public class AggregateSkinData extends SkinData {
 	}
 
 	@Override
+	public String getContentHash() {
+		SkinData member = firstReady();
+		return member == null ? null : member.getContentHash();
+	}
+
+	@Override
 	public boolean isUnavailable() {
 		List<SkinData> current = members.get();
 
